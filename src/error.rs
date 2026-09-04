@@ -60,13 +60,20 @@ impl fmt::Display for Error {
                 tag,
                 message,
             } => match tag {
-                Some(tag) => write!(f, "exa rejected request ({status} {tag}): {message}"),
-                None => write!(f, "exa rejected request ({status}): {message}"),
+                Some(tag) => write!(
+                    f,
+                    "exa rejected request ({status} {tag}): {message}; fix the arguments, retrying will not help"
+                ),
+                None => write!(
+                    f,
+                    "exa rejected request ({status}): {message}; fix the arguments, retrying will not help"
+                ),
             },
             Self::NoUsableKeys(msg) => write!(f, "no usable api key: {msg}"),
-            Self::Upstream { attempts, last } => {
-                write!(f, "upstream failed after {attempts} attempt(s): {last}")
-            }
+            Self::Upstream { attempts, last } => write!(
+                f,
+                "exa unavailable after {attempts} attempt(s): {last}; retry later"
+            ),
         }
     }
 }

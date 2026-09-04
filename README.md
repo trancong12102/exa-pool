@@ -38,6 +38,16 @@ Or build from source:
 cargo install --git https://github.com/trancong12102/exa-pool --locked
 ```
 
+## Help text for agents
+
+`--help` on every command is written for coding agents: what the command
+returns, when to prefer another command, defaults, prices, and limits, without
+tutorial prose. Flags Exa has deprecated (`--livecrawl`, `--context*`,
+`--highlights-num-sentences`, `--highlights-per-url`, `--start-crawl-date`,
+`--end-crawl-date`) are still accepted but hidden from `--help` so an agent is
+not steered towards them. `--max-age-hours` takes `-1..=720`: `0` forces a
+live fetch, `-1` is cache only.
+
 ## Rotation policy
 
 Exa reports billing and auth problems explicitly, so the pool never has to

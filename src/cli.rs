@@ -21,19 +21,36 @@ use crate::generated::{
 };
 use crate::transport::Method;
 
-/// Exa API CLI backed by a round-robin pool of API keys.
+/// Text appended to the top-level help: how to choose a command and what
+/// every command has in common. Kept terse on purpose; it is read by agents.
+const TOP_HELP: &str = "\
+Start with `search --highlights`; `contents` for URLs you already have; `answer` when only the answer \
+matters; `agent run` for open-ended lists or multi-hop research.
+Output: JSON on stdout, progress on stderr. Every response carries costDollars.total.
+Exit: 0 ok, 1 rejected locally before sending (config or input), 2 usage, 3 Exa rejected the request (fix arguments, do not retry), \
+4 no usable key, 5 Exa unavailable after retries.
+Keys: `keys add KEY...` or EXA_API_KEYS. Requests rotate across keys; 429 and 5xx are retried for you.";
+
+/// Command-line surface. `about` is spelled out because clap would otherwise
+/// print the crate description, which is written for people browsing crates.
 #[derive(Debug, Parser)]
-#[command(name = "exa-search", version, about, long_about = None)]
+#[command(
+    name = "exa-search",
+    version,
+    about = "Exa web search for agents: find pages, read URLs, get cited answers, run async research.",
+    long_about = None,
+    after_help = TOP_HELP
+)]
 pub struct Cli {
     /// Directory holding `config.toml` and `state.json`.
     #[arg(long, global = true, value_name = "DIR", env = ENV_HOME)]
     pub home: Option<PathBuf>,
 
-    /// Suppress per-attempt diagnostics on stderr.
+    /// Silence per-attempt progress on stderr.
     #[arg(short, long, global = true)]
     pub quiet: bool,
 
-    /// Print JSON on a single line instead of pretty-printed.
+    /// One-line JSON instead of pretty-printed.
     #[arg(long, global = true)]
     pub compact: bool,
 
@@ -45,31 +62,61 @@ pub struct Cli {
 /// Top-level subcommands.
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// POST /search
+    /// Find web pages for a natural-language query, optionally with page contents or a synthesized answer.
+    ///
+    /// Prints {results: [{title, url, id, publishedDate, author, text?, highlights?, summary?}],
+    /// output?: {content, grounding}, costDollars}. Result ids equal urls and can be passed to `contents`.
+    /// Defaults: --type auto (about 1s), 10 results, no page contents.
+    ///
+    /// Contents: --highlights returns the relevant excerpts at roughly a tenth of the tokens of --text;
+    /// --text --max-characters N returns the full page; --summary returns an abstract. They combine.
+    ///
+    /// Types: instant and fast trade depth for latency. deep-lite (about 4s), deep (4-15s) and
+    /// deep-reasoning (12-40s) run multi-step research and fill output.content with grounding citations.
+    ///
+    /// Synthesis: --output-schema or --structured works on every type and adds about 2s. Schema limits:
+    /// depth 2, 10 properties, no citation fields (grounding is returned separately).
+    ///
+    /// Categories company and people ignore the date filters and --exclude-domains.
+    /// Price: about $7 per 1k requests (deep types $12-15), plus $1 per 1k results and per 1k pages of contents.
     Search(SearchArgs),
-    /// POST /contents
+    /// Read one or more URLs, or result ids from `search`. Defaults to --text.
+    ///
+    /// Prints {results: [{url, title, text?, highlights?, summary?, subpages?, extras?}],
+    /// statuses: [{id, status, error?}], costDollars}. The request succeeds even when some URLs fail:
+    /// check statuses. For JSON per page use --summary-schema; there is no --output-schema here.
+    /// Price: $1 per 1k pages per content type.
     Contents(ContentsArgs),
-    /// POST /answer (non-streaming)
+    /// Search, then write one answer with citations.
+    ///
+    /// Prints {answer, citations: [{url, title, publishedDate, author, text?}], costDollars}.
+    /// Use when the answer is the deliverable; use `search` when you need the sources themselves.
+    /// Price: $5 per 1k requests.
     Answer(AnswerArgs),
-    /// POST /findSimilar
+    /// Pages similar to a seed URL. Deprecated by Exa: prefer `search` with a query describing the seed page.
+    ///
+    /// Prints the same shape as `search`.
     FindSimilar(FindSimilarArgs),
-    /// Exa Agent runs (/agent/runs): async research and list building
+    /// Exa Agent: asynchronous multi-step research, list building and enrichment, priced in dollars.
     Agent {
         /// Action to perform.
         #[command(subcommand)]
         action: AgentAction,
     },
-    /// Send any path with a raw JSON body (for endpoints not wrapped here)
+    /// Call any Exa endpoint the other commands do not cover.
+    ///
+    /// The body is sent unchanged and the response printed as-is. Exa accepts unknown fields
+    /// silently, so a typo in a field name is billed and ignored rather than rejected.
     Raw(RawArgs),
-    /// Manage the key pool
+    /// Manage the API key pool in config.toml.
     Keys {
         /// Action to perform.
         #[command(subcommand)]
         action: KeysAction,
     },
-    /// Show pool health
+    /// Per-key health: status, consecutive failures, cooldown, and spend summed from costDollars.
     Status {
-        /// Emit machine-readable JSON instead of a table.
+        /// Machine-readable JSON instead of a table.
         #[arg(long)]
         json: bool,
     },
@@ -157,71 +204,79 @@ pub fn parse_max_cost(s: &str) -> Result<f64, String> {
     reason = "each bool is an independent on/off content option, not a state machine"
 )]
 pub struct ContentsFlags {
-    /// Include full page text.
+    /// Full page text as markdown.
     #[arg(long, help_heading = "Contents")]
     pub text: bool,
 
-    /// Cap on text characters per result (implies --text).
+    /// Truncate page text at N characters (implies --text).
     #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub max_characters: Option<i64>,
 
-    /// Include highlight snippets.
+    /// The most relevant excerpts of each page; the token-cheap choice for lookups.
     #[arg(long, help_heading = "Contents")]
     pub highlights: bool,
 
-    /// Question the highlights should answer (implies --highlights).
+    /// Question the excerpts should answer; defaults to the query (implies --highlights).
     #[arg(long, value_name = "QUERY", help_heading = "Contents")]
     pub highlights_query: Option<String>,
 
-    /// Sentences per highlight (implies --highlights).
-    #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
+    /// Deprecated by Exa; use --highlights alone.
+    #[arg(long, hide = true, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub highlights_num_sentences: Option<i64>,
 
-    /// Highlights per result (implies --highlights).
-    #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
+    /// Deprecated by Exa; use --highlights alone.
+    #[arg(long, hide = true, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub highlights_per_url: Option<i64>,
 
-    /// Cap on highlight characters per result (implies --highlights).
+    /// Cap excerpt characters per page (implies --highlights).
     #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub highlights_max_characters: Option<i64>,
 
-    /// Include an LLM summary.
+    /// LLM abstract of each page.
     #[arg(long, help_heading = "Contents")]
     pub summary: bool,
 
-    /// Focus question for the summary (implies --summary).
+    /// What the abstract should focus on (implies --summary).
     #[arg(long, value_name = "QUERY", help_heading = "Contents")]
     pub summary_query: Option<String>,
 
-    /// JSON schema the summary must follow, inline or @file (implies --summary).
+    /// JSON schema the abstract must follow: per-page structured extraction (implies --summary).
     #[arg(long, value_name = "JSON|@FILE", value_parser = parse_json, help_heading = "Contents")]
     pub summary_schema: Option<Value>,
 
-    /// Include one LLM-ready context string built from all results.
-    #[arg(long, help_heading = "Contents")]
+    /// Deprecated by Exa; use --highlights or --text.
+    #[arg(long, hide = true, help_heading = "Contents")]
     pub context: bool,
 
-    /// Cap on context characters (implies --context).
-    #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
+    /// Deprecated by Exa; use --highlights or --text.
+    #[arg(long, hide = true, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub context_max_characters: Option<i64>,
 
-    /// Livecrawl mode (spec enum: never, always, fallback, preferred).
-    #[arg(long, value_name = "MODE", value_parser = parse_enum::<ContentsOptionsLivecrawl>, help_heading = "Contents")]
+    /// Deprecated by Exa; use --max-age-hours.
+    #[arg(long, hide = true, value_name = "MODE", value_parser = parse_enum::<ContentsOptionsLivecrawl>, help_heading = "Contents")]
     pub livecrawl: Option<ContentsOptionsLivecrawl>,
 
-    /// Livecrawl timeout in milliseconds.
+    /// Milliseconds to wait for a live fetch [Exa default: 10000].
     #[arg(long, value_name = "MS", value_parser = positive(), help_heading = "Contents")]
     pub livecrawl_timeout: Option<i64>,
 
-    /// Accept cached pages no older than this many hours.
-    #[arg(long, value_name = "HOURS", value_parser = positive(), help_heading = "Contents")]
+    /// Freshness: reuse cached pages younger than N hours, otherwise fetch live.
+    /// 0 always fetches live (slower), -1 never does (fastest), omitted fetches live only when
+    /// nothing is cached. Max 720.
+    #[arg(
+        long,
+        value_name = "HOURS",
+        allow_negative_numbers = true,
+        value_parser = clap::value_parser!(i64).range(-1..=720),
+        help_heading = "Contents"
+    )]
     pub max_age_hours: Option<i64>,
 
-    /// Subpages to crawl per result.
+    /// Also crawl up to N linked pages per result, returned under subpages.
     #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub subpages: Option<i64>,
 
-    /// Keywords that choose which subpages to crawl (repeat or comma-separate).
+    /// Keywords that pick which linked pages to crawl, e.g. docs,pricing (repeat or comma-separate).
     #[arg(
         long,
         value_name = "WORD",
@@ -230,11 +285,11 @@ pub struct ContentsFlags {
     )]
     pub subpage_target: Vec<String>,
 
-    /// Outbound links to return per result.
+    /// Return up to N outbound links per page.
     #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub extras_links: Option<i64>,
 
-    /// Image links to return per result.
+    /// Return up to N image URLs per page.
     #[arg(long, value_name = "N", value_parser = positive(), help_heading = "Contents")]
     pub extras_image_links: Option<i64>,
 }
@@ -268,18 +323,19 @@ impl From<ContentsFlags> for ContentsChoice {
 /// Arguments for `search`.
 #[derive(Debug, Args)]
 pub struct SearchArgs {
-    /// Natural-language query.
+    /// Prose description of the pages wanted, e.g. "blog post explaining how Rust async runtimes schedule tasks"; not keywords.
     pub query: String,
 
-    /// Number of results, 1..=100.
+    /// Results to return, 1..=100 [default: 10].
     #[arg(short = 'n', long, value_name = "N", value_parser = clap::value_parser!(i64).range(1..=100))]
     pub num_results: Option<i64>,
 
-    /// Search type (spec enum: instant, fast, auto, deep-lite, deep, deep-reasoning).
+    /// instant | fast | auto | deep-lite | deep | deep-reasoning [default: auto].
     #[arg(short = 't', long = "type", value_name = "TYPE", value_parser = parse_enum::<SearchRequestTypeInstant>)]
     pub search_type: Option<SearchRequestTypeInstant>,
 
-    /// Category (spec enum: company, publication, news, "personal site", "financial report", people).
+    /// Restrict to one kind of page: company | people | publication | news |
+    /// "personal site" | "financial report".
     #[arg(short = 'c', long, value_name = "CATEGORY", value_parser = parse_enum::<SearchRequestCategory>)]
     pub category: Option<SearchRequestCategory>,
 
@@ -309,44 +365,43 @@ pub struct SearchArgs {
     #[arg(long, value_name = "DATE", value_parser = parse_date, help_heading = "Filters")]
     pub end_published_date: Option<DateTime<Utc>>,
 
-    /// Crawled on or after (RFC 3339 or YYYY-MM-DD).
-    #[arg(long, value_name = "DATE", value_parser = parse_date, help_heading = "Filters")]
+    /// Deprecated by Exa; ignored by the API.
+    #[arg(long, hide = true, value_name = "DATE", value_parser = parse_date, help_heading = "Filters")]
     pub start_crawl_date: Option<DateTime<Utc>>,
 
-    /// Crawled on or before (RFC 3339 or YYYY-MM-DD).
-    #[arg(long, value_name = "DATE", value_parser = parse_date, help_heading = "Filters")]
+    /// Deprecated by Exa; ignored by the API.
+    #[arg(long, hide = true, value_name = "DATE", value_parser = parse_date, help_heading = "Filters")]
     pub end_crawl_date: Option<DateTime<Utc>>,
 
-    /// Phrase that must appear in page text (repeatable). Not in the published
-    /// spec; Exa's SDK documents one phrase of up to five words.
+    /// Phrase of up to five words that must appear in the page text.
     #[arg(long, value_name = "PHRASE", help_heading = "Filters")]
     pub include_text: Vec<String>,
 
-    /// Phrase that must not appear in page text (repeatable). Same caveat as --include-text.
+    /// Phrase of up to five words that must not appear in the page text.
     #[arg(long, value_name = "PHRASE", help_heading = "Filters")]
     pub exclude_text: Vec<String>,
 
-    /// Drop results that fail content moderation.
+    /// Drop unsafe content.
     #[arg(long)]
     pub moderation: bool,
 
-    /// Extra query variation (repeatable).
+    /// Extra query phrasing searched alongside the main one; deep types only (repeatable).
     #[arg(long, value_name = "QUERY")]
     pub additional_query: Vec<String>,
 
-    /// Guidance for the request (source preferences, constraints).
+    /// Source preferences or novelty and dedup constraints for the synthesized output.
     #[arg(long, value_name = "TEXT")]
     pub system_prompt: Option<String>,
 
-    /// Two-letter ISO country code of the user.
+    /// Two-letter country code to localise results, e.g. US.
     #[arg(long, value_name = "CC")]
     pub user_location: Option<String>,
 
-    /// JSON schema for structured output, inline or @file (deep search types).
+    /// JSON schema for output.content, inline or @file; root type "object" or "text".
     #[arg(long, value_name = "JSON|@FILE", value_parser = parse_json, conflicts_with = "structured")]
     pub output_schema: Option<Value>,
 
-    /// Shorthand for --output-schema '{"type":"object"}'.
+    /// Same as --output-schema '{"type":"object"}': Exa chooses the fields.
     #[arg(long)]
     pub structured: bool,
 
@@ -387,7 +442,7 @@ impl From<SearchArgs> for SearchParams {
 /// Arguments for `contents`.
 #[derive(Debug, Args)]
 pub struct ContentsArgs {
-    /// URLs or Exa result ids (1..=100).
+    /// URLs or result ids from `search`, 1..=100.
     #[arg(required = true, value_name = "URL", num_args = 1..=100)]
     pub urls: Vec<String>,
 
@@ -408,18 +463,18 @@ impl From<ContentsArgs> for ContentsParams {
 /// Arguments for `answer`.
 #[derive(Debug, Args)]
 pub struct AnswerArgs {
-    /// Question to answer.
+    /// The question.
     pub query: String,
 
-    /// Include full text of citations.
+    /// Attach each citation's full page text.
     #[arg(long)]
     pub text: bool,
 
-    /// Model (spec enum: exa, exa-pro, exa-research, exa-fast).
+    /// exa | exa-fast | exa-pro | exa-research [default: exa].
     #[arg(long, value_name = "MODEL", value_parser = parse_enum::<AnswerRequestModel>)]
     pub model: Option<AnswerRequestModel>,
 
-    /// Guidance for the answer.
+    /// Source preferences or constraints for the answer.
     #[arg(long, value_name = "TEXT")]
     pub system_prompt: Option<String>,
 }
@@ -441,11 +496,12 @@ pub struct FindSimilarArgs {
     /// Seed URL.
     pub url: String,
 
-    /// Number of results, 1..=100.
+    /// Results to return, 1..=100 [default: 10].
     #[arg(short = 'n', long, value_name = "N", value_parser = clap::value_parser!(i64).range(1..=100))]
     pub num_results: Option<i64>,
 
-    /// Category (spec enum).
+    /// Restrict to one kind of page: company | people | publication | news |
+    /// "personal site" | "financial report".
     #[arg(short = 'c', long, value_name = "CATEGORY", value_parser = parse_enum::<FindSimilarRequestCategory>)]
     pub category: Option<FindSimilarRequestCategory>,
 
@@ -503,39 +559,50 @@ impl From<FindSimilarArgs> for FindSimilarParams {
 /// `agent` subcommands.
 #[derive(Debug, Subcommand)]
 pub enum AgentAction {
-    /// Start a run (POST /agent/runs); prints the run object, or the finished run with --wait
+    /// Start a run. Prints the run object {id, status, ...}; with --wait, the finished run.
+    ///
+    /// Use for open-ended list building ("find 50 companies that..."), multi-hop research,
+    /// enriching many entities across fields, or continuing an earlier run ("10 more").
+    /// Prefer `search` when one query answers the question.
+    ///
+    /// The finished run carries output.content (text, or JSON matching --output-schema),
+    /// output.grounding citations, and costDollars. Terminal statuses: completed, failed, cancelled.
+    /// Without --wait, poll with `agent get ID`.
+    ///
+    /// Price per run: minimal $0.012, low $0.025, medium $0.10, high $0.50, xhigh $1.00;
+    /// auto (default) meters usage up to $5, max up to $20; --max-cost lowers those caps.
     Run(AgentRunArgs),
-    /// Fetch a run (GET /agent/runs/{id})
+    /// Fetch a run: status, and output plus costDollars once it has finished.
     Get {
         /// Run id.
         id: String,
     },
-    /// List runs (GET /agent/runs)
+    /// List runs, newest first. Page with --cursor set to nextCursor from the previous page.
     List {
-        /// Results per page, 1..=100.
+        /// Runs per page, 1..=100.
         #[arg(long, value_name = "N", value_parser = clap::value_parser!(i64).range(1..=100))]
         limit: Option<i64>,
-        /// `nextCursor` from the previous page.
+        /// nextCursor from the previous page.
         #[arg(long, value_name = "CURSOR")]
         cursor: Option<String>,
     },
-    /// Fetch a run's event log (GET /agent/runs/{id}/events)
+    /// Event log of a run: lifecycle, tool calls, progress, errors.
     Events {
         /// Run id.
         id: String,
-        /// Results per page, 1..=100.
+        /// Events per page, 1..=100.
         #[arg(long, value_name = "N", value_parser = clap::value_parser!(i64).range(1..=100))]
         limit: Option<i64>,
-        /// `nextCursor` from the previous page.
+        /// nextCursor from the previous page.
         #[arg(long, value_name = "CURSOR")]
         cursor: Option<String>,
     },
-    /// Cancel a run (POST /agent/runs/{id}/cancel)
+    /// Cancel a queued or running run; its output is discarded.
     Cancel {
         /// Run id.
         id: String,
     },
-    /// Stop a run and keep partial output (POST /agent/runs/{id}/stop)
+    /// Stop a running run and keep what it has produced so far.
     Stop {
         /// Run id.
         id: String,
@@ -545,39 +612,42 @@ pub enum AgentAction {
 /// Arguments for `agent run`.
 #[derive(Debug, Args)]
 pub struct AgentRunArgs {
-    /// What the agent should research or build.
+    /// What to research or build, including the criteria and how many results you want.
     pub query: String,
 
-    /// Guidance for the agent.
+    /// Source preferences, exclusions, or output conventions for the agent.
     #[arg(long, value_name = "TEXT")]
     pub system_prompt: Option<String>,
 
-    /// Effort (spec enum: minimal, low, medium, high, xhigh, auto, max).
-    /// Server default is auto, capped at $5; max is capped at $20.
+    /// minimal | low | medium | high | xhigh: fixed-price tiers, cheapest to most thorough.
+    /// auto (default) lets Exa choose, up to $5. max favours completeness over cost, up to $20.
     #[arg(long, value_name = "EFFORT", value_parser = parse_enum::<AgentEffort>)]
     pub effort: Option<AgentEffort>,
 
-    /// Spend cap in USD (1..=100) for the auto and max efforts.
+    /// Spend cap in USD, 1..=100. Only auto and max are metered; fixed tiers cost their listed price.
     #[arg(long, value_name = "USD", value_parser = parse_max_cost)]
     pub max_cost: Option<f64>,
 
-    /// JSON schema for structured output, inline or @file.
+    /// JSON schema for output.content, inline or @file.
     #[arg(long, value_name = "JSON|@FILE", value_parser = parse_json)]
     pub output_schema: Option<Value>,
 
-    /// Continue from an earlier run.
+    /// Completed run to continue from, e.g. to ask for more results.
     #[arg(long, value_name = "RUN_ID")]
     pub previous_run_id: Option<String>,
 
-    /// Exa Connect provider to enable (spec enum, repeatable).
+    /// Exa Connect provider to enable (repeatable): fiber (B2B people and companies),
+    /// `financial_datasets` (US tickers), similarweb (web traffic), baselayer (US business KYB),
+    /// affiliate (product catalogs), particle (podcast transcripts), jinko (flights and hotels),
+    /// polymarket (prediction markets).
     #[arg(long, value_name = "PROVIDER", value_parser = parse_enum::<AgentDataSourceProvider>)]
     pub data_source: Vec<AgentDataSourceProvider>,
 
-    /// Metadata stored with the run (KEY=VALUE, repeatable).
+    /// KEY=VALUE stored with the run (repeatable).
     #[arg(long, value_name = "KEY=VALUE", value_parser = parse_key_value)]
     pub metadata: Vec<(String, String)>,
 
-    /// Poll until the run finishes and print the final run object.
+    /// Block until a terminal status and print the finished run instead of the initial one.
     #[arg(long)]
     pub wait: bool,
 
@@ -604,10 +674,10 @@ impl From<&AgentRunArgs> for AgentRunParams {
 /// Arguments for `raw`.
 #[derive(Debug, Args)]
 pub struct RawArgs {
-    /// Endpoint path, e.g. `/agent/runs` or `search`.
+    /// Endpoint path, e.g. /agent/runs or search.
     pub path: String,
 
-    /// HTTP verb (GET or POST).
+    /// GET or POST.
     #[arg(short = 'X', long, value_name = "VERB", default_value = "POST", value_parser = parse_method)]
     pub method: Method,
 
@@ -615,7 +685,7 @@ pub struct RawArgs {
     #[arg(long, value_name = "JSON", conflicts_with = "body_file")]
     pub body: Option<String>,
 
-    /// Read JSON body from a file (`-` for stdin).
+    /// JSON body from a file, or - for stdin.
     #[arg(long, value_name = "FILE")]
     pub body_file: Option<PathBuf>,
 }
@@ -623,23 +693,23 @@ pub struct RawArgs {
 /// `keys` subcommands.
 #[derive(Debug, Subcommand)]
 pub enum KeysAction {
-    /// List configured keys (masked) with their health
+    /// Configured keys, masked, with their health. Same as `status`.
     List,
-    /// Append keys to config.toml
+    /// Append keys to config.toml; duplicates are skipped.
     Add {
-        /// One or more API keys.
+        /// One or more Exa API keys.
         #[arg(required = true, value_name = "KEY")]
         keys: Vec<String>,
     },
-    /// Remove a key from config.toml (full key, fingerprint, or masked label)
+    /// Remove a key from config.toml.
     Remove {
-        /// Identifier.
+        /// Full key, fingerprint, or masked label as shown by `status`.
         #[arg(value_name = "KEY|FINGERPRINT|LABEL")]
         key: String,
     },
-    /// Clear exhausted/invalid/cooldown status (all keys, or one)
+    /// Clear exhausted, invalid and cooldown marks so keys are tried again.
     Reset {
-        /// Identifier; omit to reset every key.
+        /// Full key, fingerprint, or masked label; omit to reset every key.
         #[arg(value_name = "KEY|FINGERPRINT|LABEL")]
         key: Option<String>,
     },
