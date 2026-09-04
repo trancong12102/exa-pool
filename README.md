@@ -25,7 +25,13 @@ Per-attempt diagnostics go to stderr (`-q` to silence).
 Prebuilt binaries for Linux (x86_64, aarch64, static musl), macOS (Intel,
 Apple Silicon) and Windows (x86_64) are attached to each
 [GitHub release](https://github.com/trancong12102/exa-pool/releases), with a
-`.sha256` next to every archive. Or build from source:
+`.sha256` next to every archive. With Homebrew on macOS or Linux:
+
+```
+brew install trancong12102/tap/exa-pool
+```
+
+Or build from source:
 
 ```
 cargo install --git https://github.com/trancong12102/exa-pool --locked
@@ -206,6 +212,10 @@ On every push to `main`, `release.yml` runs release-please, which keeps a
 `Cargo.toml` and `Cargo.lock` and the generated `CHANGELOG.md`. Merging that
 PR creates the tag and the GitHub release, and the same workflow then attaches
 one archive per target from the matrix in that file. Nothing is tagged by hand.
+Finally it renders `Formula/exa-pool.rb` with `scripts/brew-formula.sh` and
+pushes it to [trancong12102/homebrew-tap](https://github.com/trancong12102/homebrew-tap);
+that step needs a `HOMEBREW_TAP_TOKEN` secret with write access to the tap and
+is skipped with a warning when the secret is missing.
 
 Lints are configured in `Cargo.toml` (`clippy::all`, `pedantic`, `nursery`,
 `cargo`, plus a hand-picked set of restriction lints such as `unwrap_used`,
