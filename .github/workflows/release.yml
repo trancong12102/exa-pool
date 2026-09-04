@@ -70,7 +70,10 @@ jobs:
   # write access to the tap in the HOMEBREW_TAP_TOKEN secret; skipped otherwise.
   homebrew:
     needs: [release-please, upload]
-    if: needs.release-please.outputs.release_created == 'true'
+    # always(): a failed Windows build must not block the formula, which only
+    # needs the four macOS/Linux archives; the render script fails loudly if
+    # any of those is missing.
+    if: always() && needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
