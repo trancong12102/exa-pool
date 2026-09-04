@@ -1,0 +1,79 @@
+[package]
+name = "exa-pool"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Exa API CLI backed by a persistent round-robin pool of API keys"
+license = "MIT"
+repository = "https://github.com/trancong12102/exa-pool"
+publish = false
+
+[[bin]]
+name = "exa-pool"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["serde", "std", "clock"] }
+clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "1.1"
+ureq = { version = "3.4", features = ["json"] }
+url = { version = "2", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unused_qualifications = "warn"
+unused_import_braces = "warn"
+unreachable_pub = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_must_use = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# restriction lints (opt-in, chosen individually)
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+indexing_slicing = "warn"
+arithmetic_side_effects = "warn"
+as_conversions = "warn"
+exit = "warn"
+str_to_string = "warn"
+clone_on_ref_ptr = "warn"
+rc_buffer = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+unneeded_field_pattern = "warn"
+verbose_file_reads = "warn"
+wildcard_enum_match_arm = "warn"
+mem_forget = "warn"
+lossy_float_literal = "warn"
+float_cmp_const = "warn"
+# noisy for a small CLI crate
+module_name_repetitions = "allow"
+option_if_let_else = "allow"
+multiple_crate_versions = "allow"

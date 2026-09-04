@@ -1,0 +1,44 @@
+name: spec-sync
+
+# Weekly: pull exa.ai/docs/exa-spec.json, regenerate src/generated, open a PR when anything changed.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-nextest,cargo-deny,cargo-audit,cargo-machete
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: openapi-to-rust@0.15.0
+      - name: Sync spec and regenerate
+        id: sync
+        run: just spec-sync
+      - name: Full CI on the regenerated tree
+        id: ci
+        run: just ci
+      # Open the PR even when check/ci failed: that is exactly when a renamed or
+      # removed field needs a human to update src/exa.rs and src/cli.rs.
+      - uses: peter-evans/create-pull-request@v7
+        if: always()
+        with:
+          branch: chore/spec-sync
+          title: "chore: sync Exa OpenAPI spec"
+          commit-message: "chore: sync Exa OpenAPI spec and regenerate types"
+          body: |
+            Automated pull of https://exa.ai/docs/exa-spec.json followed by `just codegen`.
+            Review the diff in `spec/` and `src/generated/`, then check `src/exa.rs` and `src/cli.rs`
+            still compile against any renamed or removed fields.
+          labels: dependencies
