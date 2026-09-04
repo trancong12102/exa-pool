@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/trancong12102/exa-pool/compare/v0.2.0...v0.2.1) (2026-09-04)
+
+
+### Features
+
+* rewrite --help for coding agents ([1f537e6](https://github.com/trancong12102/exa-pool/commit/1f537e6d7b446e62530fd1812390231991e1f8b7))
+
 ## [0.2.0](https://github.com/trancong12102/exa-pool/compare/v0.1.0...v0.2.0) (2026-09-04)
 
 
