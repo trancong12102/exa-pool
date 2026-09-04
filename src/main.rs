@@ -1,4 +1,4 @@
-//! `exa-pool` binary: the only place that prints.
+//! `exa-search` binary: the only place that prints.
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
@@ -22,7 +22,7 @@ fn main() -> ExitCode {
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("exa-pool: {err}");
+            eprintln!("exa-search: {err}");
             ExitCode::from(u8::try_from(err.exit_code()).unwrap_or(1))
         }
     }
@@ -70,7 +70,7 @@ fn agent_run(paths: &Paths, args: &AgentRunArgs, quiet: bool, compact: bool) -> 
         let created = pool.execute(&create)?;
         let run = parse_run(&created)?;
         // Always surface the id first: Ctrl-C during --wait must not lose it.
-        eprintln!("exa-pool: agent run {} {}", run.id, run.status);
+        eprintln!("exa-search: agent run {} {}", run.id, run.status);
         if !args.wait {
             return Ok(created);
         }
@@ -86,7 +86,7 @@ fn agent_run(paths: &Paths, args: &AgentRunArgs, quiet: bool, compact: bool) -> 
             let body = pool.execute(&poll)?;
             let run = parse_run(&body)?;
             if run.status != last && !quiet {
-                eprintln!("exa-pool: agent run {} {}", run.id, run.status);
+                eprintln!("exa-search: agent run {} {}", run.id, run.status);
             }
             last = run.status;
         }
@@ -142,7 +142,7 @@ fn with_pool<R>(
     let config = config::load(paths)?;
     if config.keys.is_empty() {
         return Err(Error::Config(format!(
-            "no api keys; run `exa-pool keys add <KEY>` or set {ENV_KEYS}"
+            "no api keys; run `exa-search keys add <KEY>` or set {ENV_KEYS}"
         )));
     }
     let store = StateStore::new(paths.state.clone());
@@ -157,9 +157,9 @@ fn with_pool<R>(
                 attempt,
                 label,
                 summary,
-            } => eprintln!("exa-pool: attempt {attempt} key {label}: {summary}"),
-            Event::Waiting { ms } => eprintln!("exa-pool: all keys cooling down, waiting {ms}ms"),
-            Event::Backoff { ms } => eprintln!("exa-pool: backing off {ms}ms"),
+            } => eprintln!("exa-search: attempt {attempt} key {label}: {summary}"),
+            Event::Waiting { ms } => eprintln!("exa-search: all keys cooling down, waiting {ms}ms"),
+            Event::Backoff { ms } => eprintln!("exa-search: backing off {ms}ms"),
         }
     };
     let pool = Pool::new(&config, &store, &transport, &clock).with_observer(&observer);
@@ -204,7 +204,7 @@ fn keys_add(paths: &Paths, new_keys: Vec<String>) -> Result<()> {
     config::save(paths, &file)?;
     let added = file.keys.len().saturating_sub(before);
     eprintln!(
-        "exa-pool: added {added} key(s), {} total in {}",
+        "exa-search: added {added} key(s), {} total in {}",
         file.keys.len(),
         paths.config.display()
     );
@@ -241,7 +241,7 @@ fn keys_remove(paths: &Paths, ident: &str) -> Result<()> {
     store.update(|s| {
         s.keys.remove(&entry.id);
     })?;
-    eprintln!("exa-pool: removed {} ({})", entry.label, entry.id);
+    eprintln!("exa-search: removed {} ({})", entry.label, entry.id);
     Ok(())
 }
 
@@ -267,7 +267,7 @@ fn keys_reset(paths: &Paths, ident: Option<&str>) -> Result<()> {
         }
         n
     })?;
-    eprintln!("exa-pool: reset {count} key(s)");
+    eprintln!("exa-search: reset {count} key(s)");
     Ok(())
 }
 

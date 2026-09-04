@@ -23,7 +23,7 @@ use crate::transport::Method;
 
 /// Exa API CLI backed by a round-robin pool of API keys.
 #[derive(Debug, Parser)]
-#[command(name = "exa-pool", version, about, long_about = None)]
+#[command(name = "exa-search", version, about, long_about = None)]
 pub struct Cli {
     /// Directory holding `config.toml` and `state.json`.
     #[arg(long, global = true, value_name = "DIR", env = ENV_HOME)]
@@ -659,7 +659,7 @@ mod tests {
     #[test]
     fn parses_search_with_spec_enums() {
         let cli = Cli::parse_from([
-            "exa-pool",
+            "exa-search",
             "search",
             "rust http client",
             "-n",
@@ -711,7 +711,8 @@ mod tests {
 
     #[test]
     fn unknown_enum_value_is_rejected_with_allowed_list() {
-        let err = Cli::try_parse_from(["exa-pool", "search", "q", "--type", "neural"]).unwrap_err();
+        let err =
+            Cli::try_parse_from(["exa-search", "search", "q", "--type", "neural"]).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("unknown variant `neural`"), "{msg}");
         assert!(msg.contains("`deep-reasoning`"), "{msg}");
@@ -720,7 +721,7 @@ mod tests {
     #[test]
     fn structured_and_output_schema_conflict() {
         let err = Cli::try_parse_from([
-            "exa-pool",
+            "exa-search",
             "search",
             "q",
             "--structured",
@@ -733,15 +734,15 @@ mod tests {
 
     #[test]
     fn num_results_range_is_enforced() {
-        assert!(Cli::try_parse_from(["exa-pool", "search", "q", "-n", "0"]).is_err());
-        assert!(Cli::try_parse_from(["exa-pool", "search", "q", "-n", "101"]).is_err());
-        assert!(Cli::try_parse_from(["exa-pool", "search", "q", "-n", "100"]).is_ok());
+        assert!(Cli::try_parse_from(["exa-search", "search", "q", "-n", "0"]).is_err());
+        assert!(Cli::try_parse_from(["exa-search", "search", "q", "-n", "101"]).is_err());
+        assert!(Cli::try_parse_from(["exa-search", "search", "q", "-n", "100"]).is_ok());
     }
 
     #[test]
     fn bad_date_is_rejected() {
         let err = Cli::try_parse_from([
-            "exa-pool",
+            "exa-search",
             "search",
             "q",
             "--start-published-date",
@@ -754,7 +755,7 @@ mod tests {
     #[test]
     fn agent_run_parses_spec_enums_and_metadata() {
         let cli = Cli::parse_from([
-            "exa-pool",
+            "exa-search",
             "agent",
             "run",
             "list rust http clients",
@@ -794,7 +795,7 @@ mod tests {
     #[test]
     fn agent_max_cost_outside_spec_range_is_rejected() {
         for bad in ["0.5", "101", "nan"] {
-            let err = Cli::try_parse_from(["exa-pool", "agent", "run", "q", "--max-cost", bad])
+            let err = Cli::try_parse_from(["exa-search", "agent", "run", "q", "--max-cost", bad])
                 .unwrap_err();
             assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation, "{bad}");
         }
@@ -803,7 +804,7 @@ mod tests {
 
     #[test]
     fn agent_effort_outside_spec_is_rejected() {
-        let err = Cli::try_parse_from(["exa-pool", "agent", "run", "q", "--effort", "turbo"])
+        let err = Cli::try_parse_from(["exa-search", "agent", "run", "q", "--effort", "turbo"])
             .unwrap_err();
         assert!(err.to_string().contains("`xhigh`"), "{err}");
     }
@@ -811,7 +812,7 @@ mod tests {
     #[test]
     fn raw_method_and_body_flags() {
         let err = Cli::try_parse_from([
-            "exa-pool",
+            "exa-search",
             "raw",
             "/x",
             "--body",
@@ -821,12 +822,12 @@ mod tests {
         ])
         .unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
-        let cli = Cli::parse_from(["exa-pool", "raw", "/agent/runs", "-X", "get"]);
+        let cli = Cli::parse_from(["exa-search", "raw", "/agent/runs", "-X", "get"]);
         let Command::Raw(args) = cli.command else {
             panic!("expected raw");
         };
         assert_eq!(args.method, Method::Get);
-        assert!(Cli::try_parse_from(["exa-pool", "raw", "/x", "-X", "PUT"]).is_err());
+        assert!(Cli::try_parse_from(["exa-search", "raw", "/x", "-X", "PUT"]).is_err());
     }
 
     #[test]

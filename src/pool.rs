@@ -134,7 +134,7 @@ pub fn select(state: &mut State, keys: &[KeyEntry], now_ms: u64) -> Selection {
     earliest.map_or_else(
         || {
             Selection::None(format!(
-                "all {len} key(s) unusable: {} exhausted, {} invalid (run `exa-pool keys reset` after topping up)",
+                "all {len} key(s) unusable: {} exhausted, {} invalid (run `exa-search keys reset` after topping up)",
                 blocked.0, blocked.1
             ))
         },

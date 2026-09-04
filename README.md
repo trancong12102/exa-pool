@@ -2,19 +2,20 @@
 
 Command-line client for the [Exa](https://exa.ai) API that spreads requests
 over a pool of API keys, round-robin, and remembers which keys are dead.
+The crate is `exa-pool`; the installed binary is `exa-search`.
 
 ```
-exa-pool keys add <KEY1> <KEY2> ...
-exa-pool search "rust http client" -n 5 --type fast --max-characters 500
-exa-pool search "rust http client" --type deep --structured --highlights-query "which crate"
-exa-pool search "acme corp" --category company --highlights --include-text "series B"
-exa-pool contents https://example.com --summary-query "pricing" --subpages 2 --subpage-target docs
-exa-pool answer "what is retrieval-augmented generation?" --text
-exa-pool find-similar https://exa.ai -n 3 --exclude-source-domain
-exa-pool agent run "list Rust HTTP client crates with their maintainers" --effort low --wait
-exa-pool agent get <RUN_ID>          # also: list, events, cancel, stop
-exa-pool raw /agent/runs -X GET       # any endpoint, GET or POST
-exa-pool status
+exa-search keys add <KEY1> <KEY2> ...
+exa-search search "rust http client" -n 5 --type fast --max-characters 500
+exa-search search "rust http client" --type deep --structured --highlights-query "which crate"
+exa-search search "acme corp" --category company --highlights --include-text "series B"
+exa-search contents https://example.com --summary-query "pricing" --subpages 2 --subpage-target docs
+exa-search answer "what is retrieval-augmented generation?" --text
+exa-search find-similar https://exa.ai -n 3 --exclude-source-domain
+exa-search agent run "list Rust HTTP client crates with their maintainers" --effort low --wait
+exa-search agent get <RUN_ID>          # also: list, events, cancel, stop
+exa-search raw /agent/runs -X GET       # any endpoint, GET or POST
+exa-search status
 ```
 
 Responses are printed as JSON on stdout (`--compact` for one line).
@@ -103,10 +104,10 @@ keys = []
 ## Key management
 
 ```
-exa-pool keys list                # same as `status`
-exa-pool keys add KEY...
-exa-pool keys remove <key|fingerprint|label>
-exa-pool keys reset [key|fingerprint|label]   # clear exhausted/invalid/cooldown
+exa-search keys list                # same as `status`
+exa-search keys add KEY...
+exa-search keys remove <key|fingerprint|label>
+exa-search keys reset [key|fingerprint|label]   # clear exhausted/invalid/cooldown
 ```
 
 Run `keys reset` after topping up an account.

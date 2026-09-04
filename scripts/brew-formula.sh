@@ -9,10 +9,10 @@ version=${tag#v}
 repo="https://github.com/trancong12102/exa-pool"
 base="$repo/releases/download/$tag"
 
-# upload-rust-binary-action names the checksum exa-pool-<target>.sha256 and
+# upload-rust-binary-action names the checksum exa-search-<target>.sha256 and
 # writes "<hex>  <archive>". Refuse to render anything but a 64-hex digest.
 sha() {
-  digest=$(curl -fsSL "$base/exa-pool-$1.sha256" | cut -d' ' -f1) || digest=""
+  digest=$(curl -fsSL "$base/exa-search-$1.sha256" | cut -d' ' -f1) || digest=""
   case "$digest" in
     *[!0-9a-f]* | "") echo "brew-formula: no sha256 for $1 at $tag" >&2; exit 1 ;;
   esac
@@ -34,32 +34,32 @@ class ExaPool < Formula
 
   on_macos do
     on_arm do
-      url "$base/exa-pool-aarch64-apple-darwin.tar.gz"
+      url "$base/exa-search-aarch64-apple-darwin.tar.gz"
       sha256 "$mac_arm"
     end
     on_intel do
-      url "$base/exa-pool-x86_64-apple-darwin.tar.gz"
+      url "$base/exa-search-x86_64-apple-darwin.tar.gz"
       sha256 "$mac_intel"
     end
   end
 
   on_linux do
     on_arm do
-      url "$base/exa-pool-aarch64-unknown-linux-musl.tar.gz"
+      url "$base/exa-search-aarch64-unknown-linux-musl.tar.gz"
       sha256 "$linux_arm"
     end
     on_intel do
-      url "$base/exa-pool-x86_64-unknown-linux-musl.tar.gz"
+      url "$base/exa-search-x86_64-unknown-linux-musl.tar.gz"
       sha256 "$linux_intel"
     end
   end
 
   def install
-    bin.install "exa-pool"
+    bin.install "exa-search"
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/exa-pool --version")
+    assert_match version.to_s, shell_output("#{bin}/exa-search --version")
   end
 end
 RUBY

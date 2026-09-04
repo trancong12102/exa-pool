@@ -9,7 +9,7 @@ repository = "https://github.com/trancong12102/exa-pool"
 publish = false
 
 [[bin]]
-name = "exa-pool"
+name = "exa-search"
 path = "src/main.rs"
 
 [lib]

@@ -65,7 +65,7 @@ jobs:
           target: ${{ matrix.target }}
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: exa-pool
+          bin: exa-search
           target: ${{ matrix.target }}
           ref: refs/tags/${{ needs.release-please.outputs.tag_name }}
           locked: true
