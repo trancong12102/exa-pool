@@ -65,3 +65,33 @@ jobs:
           zip: windows
           checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Bump Formula/exa-pool.rb in trancong12102/homebrew-tap. Needs a PAT with
+  # write access to the tap in the HOMEBREW_TAP_TOKEN secret; skipped otherwise.
+  homebrew:
+    needs: [release-please, upload]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - if: env.HOMEBREW_TAP_TOKEN == ''
+        run: echo "::warning::HOMEBREW_TAP_TOKEN is not set; Formula/exa-pool.rb was not updated for $TAG"
+      - if: env.HOMEBREW_TAP_TOKEN != ''
+        uses: actions/checkout@v4
+      - if: env.HOMEBREW_TAP_TOKEN != ''
+        uses: actions/checkout@v4
+        with:
+          repository: trancong12102/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - if: env.HOMEBREW_TAP_TOKEN != ''
+        run: |
+          sh scripts/brew-formula.sh "$TAG" > tap/Formula/exa-pool.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/exa-pool.rb
+          git commit -m "exa-pool ${TAG#v}"
+          git push
