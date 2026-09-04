@@ -204,7 +204,9 @@ lefthook install   # pre-commit: fmt + clippy + machete; pre-push: just ci
 
 Releases are driven by [Conventional Commits](https://www.conventionalcommits.org/):
 `feat:` bumps the minor version, `fix:` and `perf:` bump the patch, a `!` or a
-`BREAKING CHANGE:` footer bumps the major. Other types (`docs:`, `ci:`,
+`BREAKING CHANGE:` footer bumps the major. While the version is below 1.0.0,
+each of those is one step smaller: breaking changes bump the minor and
+features bump the patch. Other types (`docs:`, `ci:`,
 `chore:`, `refactor:`, `test:`, `build:`) never trigger a release. The
 `commit-msg` hook in `lefthook.yml` rejects messages that do not fit.
 
