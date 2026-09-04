@@ -194,14 +194,18 @@ lefthook install   # pre-commit: fmt + clippy + machete; pre-push: just ci
 
 `ci.yml` runs `just ci` on every push to `main` and every pull request.
 `spec-sync.yml` pulls the Exa spec weekly and opens a PR when it changed.
-To cut a release, bump `version` in `Cargo.toml`, then push a matching tag:
 
-```
-git tag v0.1.0 && git push origin v0.1.0
-```
+Releases are driven by [Conventional Commits](https://www.conventionalcommits.org/):
+`feat:` bumps the minor version, `fix:` and `perf:` bump the patch, a `!` or a
+`BREAKING CHANGE:` footer bumps the major. Other types (`docs:`, `ci:`,
+`chore:`, `refactor:`, `test:`, `build:`) never trigger a release. The
+`commit-msg` hook in `lefthook.yml` rejects messages that do not fit.
 
-`release.yml` reruns `just ci`, creates the GitHub release, and attaches one
-archive per target from the matrix in that file.
+On every push to `main`, `release.yml` runs release-please, which keeps a
+"chore(main): release X.Y.Z" pull request up to date with the version bump in
+`Cargo.toml` and `Cargo.lock` and the generated `CHANGELOG.md`. Merging that
+PR creates the tag and the GitHub release, and the same workflow then attaches
+one archive per target from the matrix in that file. Nothing is tagged by hand.
 
 Lints are configured in `Cargo.toml` (`clippy::all`, `pedantic`, `nursery`,
 `cargo`, plus a hand-picked set of restriction lints such as `unwrap_used`,

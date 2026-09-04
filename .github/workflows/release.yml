@@ -1,40 +1,36 @@
 name: release
 
-# Push a tag like v0.1.0: run the full CI gate, create the GitHub release,
-# then build and attach one archive (plus sha256) per target.
+# Conventional-commit driven. On every push to main, release-please keeps a
+# "chore(main): release X.Y.Z" PR up to date (Cargo.toml, Cargo.lock,
+# CHANGELOG.md). Merging that PR creates the tag and the GitHub release, and
+# the same run then builds and attaches one archive (plus sha256) per target.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  ci:
+  release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just,cargo-nextest,cargo-deny,cargo-audit,cargo-machete
-      - uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: openapi-to-rust@0.15.0
-      - run: just ci
-
-  create-release:
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/create-gh-release-action@v1
+      - uses: googleapis/release-please-action@v4
+        id: rp
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   upload:
-    needs: create-release
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -47,6 +43,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -61,6 +59,8 @@ jobs:
         with:
           bin: exa-pool
           target: ${{ matrix.target }}
+          ref: refs/tags/${{ needs.release-please.outputs.tag_name }}
+          locked: true
           tar: unix
           zip: windows
           checksum: sha256

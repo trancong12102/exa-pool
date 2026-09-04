@@ -15,3 +15,11 @@ pre-push:
   commands:
     ci:
       run: just ci
+
+# release-please derives the next version and the changelog from these.
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        head -1 "{1}" | grep -qE '^(Merge |(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([A-Za-z0-9._/-]+\))?!?: .+)' \
+          || { echo "commit message must follow Conventional Commits, e.g. 'feat(search): add --moderation'" >&2; exit 1; }
