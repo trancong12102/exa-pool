@@ -7,6 +7,13 @@ name: release
 on:
   push:
     branches: [main]
+  # Re-render the formula for an existing release, e.g. after adding
+  # HOMEBREW_TAP_TOKEN or fixing scripts/brew-formula.sh.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to publish to Homebrew (vX.Y.Z)"
+        required: true
 
 permissions:
   contents: write
@@ -18,6 +25,7 @@ concurrency:
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
@@ -30,7 +38,7 @@ jobs:
 
   upload:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -73,11 +81,11 @@ jobs:
     # always(): a failed Windows build must not block the formula, which only
     # needs the four macOS/Linux archives; the render script fails loudly if
     # any of those is missing.
-    if: always() && needs.release-please.outputs.release_created == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true')
     runs-on: ubuntu-latest
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      TAG: ${{ needs.release-please.outputs.tag_name }}
+      TAG: ${{ github.event.inputs.tag || needs.release-please.outputs.tag_name }}
     steps:
       - if: env.HOMEBREW_TAP_TOKEN == ''
         run: echo "::warning::HOMEBREW_TAP_TOKEN is not set; Formula/exa-pool.rb was not updated for $TAG"
@@ -96,5 +104,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula/exa-pool.rb
+          git diff --cached --quiet && { echo "formula already at $TAG"; exit 0; }
           git commit -m "exa-pool ${TAG#v}"
           git push
