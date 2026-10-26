@@ -338,14 +338,6 @@ pub struct UpdateMonitorMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorCadence {
-    ///Cron expression for monitor cadence (must be a valid Unix cron with 5 fields). The schedule must trigger at most once per day.
-    pub cron: String,
-    ///IANA timezone (e.g., "America/New_York")
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timezone: Option<String>,
-}
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct UpdateImport {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,11 +358,8 @@ pub struct UpdateEnrichmentParameters {
     ///Constraint: minLength=1, maxLength=5000
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /**Format of the enrichment response.
-
-We automatically select the best format based on the description. If you want to explicitly specify the format, you can do so here.*/
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub format: Option<UpdateEnrichmentParametersFormat>,
+    pub format: Option<WebsetEnrichmentFormat>,
     ///Set of key-value pairs you want to associate with this object.
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -381,10 +370,10 @@ We automatically select the best format based on the description. If you want to
     ///When the format is options, the different options for the enrichment agent to choose from.
     ///Constraint: minItems=1, maxItems=150
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<Vec<UpdateEnrichmentParametersObject>>,
+    pub options: Option<Vec<UpdateEnrichmentParametersOptionsItem>>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct UpdateEnrichmentParametersObject {
+pub struct UpdateEnrichmentParametersOptionsItem {
     ///The label of the option
     pub label: String,
 }
@@ -396,50 +385,6 @@ pub struct UpdateEnrichmentParametersMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-/**Format of the enrichment response.
-
-We automatically select the best format based on the description. If you want to explicitly specify the format, you can do so here.*/
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum UpdateEnrichmentParametersFormat {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-    #[serde(rename = "date")]
-    Date,
-    #[serde(rename = "number")]
-    Number,
-    #[serde(rename = "options")]
-    Options,
-    #[serde(rename = "email")]
-    Email,
-    #[serde(rename = "phone")]
-    Phone,
-    #[serde(rename = "url")]
-    Url,
-}
-impl UpdateEnrichmentParametersFormat {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-            Self::Date => "date",
-            Self::Number => "number",
-            Self::Options => "options",
-            Self::Email => "email",
-            Self::Phone => "phone",
-            Self::Url => "url",
-        }
-    }
-}
-impl ::std::fmt::Display for UpdateEnrichmentParametersFormat {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for UpdateEnrichmentParametersFormat {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchSynthesisOutputOutputContentVariant2 {
     /// Additional properties matching the spec's
@@ -450,1036 +395,1494 @@ pub struct SearchSynthesisOutputOutputContentVariant2 {
         Option<Box<JsonValue>>,
     >,
 }
+///Schema for each JSON payload emitted in a `/search` server-sent event stream. Each event is emitted as `data: <json>` and the stream terminates with `data: [DONE]`, which is not represented by this JSON schema.
+#[derive(Debug, Clone)]
+pub enum SearchStreamChunk {
+    SearchStreamTextDeltaChunkOutput(SearchStreamTextDeltaChunkOutput),
+    SearchStreamGroundingChunkOutput(SearchStreamGroundingChunkOutput),
+    SearchStreamResultsChunkOutput(SearchStreamResultsChunkOutput),
+    SearchStreamResetChunkOutput(SearchStreamResetChunkOutput),
+    SearchStreamDoneChunkOutput(SearchStreamDoneChunkOutput),
+    SearchStreamErrorChunkOutput(SearchStreamErrorChunkOutput),
+}
+impl serde::Serialize for SearchStreamChunk {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::SearchStreamTextDeltaChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "text-delta") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamTextDeltaChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("text-delta".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::SearchStreamGroundingChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamGroundingChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "grounding") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamGroundingChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("grounding".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::SearchStreamResultsChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamResultsChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "results") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamResultsChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("results".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::SearchStreamResetChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamResetChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "stream-reset") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamResetChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("stream-reset".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::SearchStreamDoneChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamDoneChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "done") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamDoneChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("done".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::SearchStreamErrorChunkOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchStreamErrorChunkOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "error") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchStreamErrorChunkOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("error".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+        }
+    }
+}
+impl<'de> serde::Deserialize<'de> for SearchStreamChunk {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "text-delta" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamTextDeltaChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text-delta", first_name,
+                                            stringify!(SearchStreamGroundingChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamGroundingChunkOutput(payload),
+                                stringify!(SearchStreamGroundingChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text-delta", first_name,
+                                            stringify!(SearchStreamResultsChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResultsChunkOutput(payload),
+                                stringify!(SearchStreamResultsChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text-delta", first_name,
+                                            stringify!(SearchStreamResetChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResetChunkOutput(payload),
+                                stringify!(SearchStreamResetChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text-delta", first_name,
+                                            stringify!(SearchStreamDoneChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamDoneChunkOutput(payload),
+                                stringify!(SearchStreamDoneChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text-delta", first_name,
+                                            stringify!(SearchStreamErrorChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamErrorChunkOutput(payload),
+                                stringify!(SearchStreamErrorChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "grounding" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamGroundingChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "grounding", first_name,
+                                            stringify!(SearchStreamTextDeltaChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamTextDeltaChunkOutput(payload),
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "grounding", first_name,
+                                            stringify!(SearchStreamResultsChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResultsChunkOutput(payload),
+                                stringify!(SearchStreamResultsChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "grounding", first_name,
+                                            stringify!(SearchStreamResetChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResetChunkOutput(payload),
+                                stringify!(SearchStreamResetChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "grounding", first_name,
+                                            stringify!(SearchStreamDoneChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamDoneChunkOutput(payload),
+                                stringify!(SearchStreamDoneChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "grounding", first_name,
+                                            stringify!(SearchStreamErrorChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamErrorChunkOutput(payload),
+                                stringify!(SearchStreamErrorChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "results" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamResultsChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "results", first_name,
+                                            stringify!(SearchStreamTextDeltaChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamTextDeltaChunkOutput(payload),
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "results", first_name,
+                                            stringify!(SearchStreamGroundingChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamGroundingChunkOutput(payload),
+                                stringify!(SearchStreamGroundingChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "results", first_name,
+                                            stringify!(SearchStreamResetChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResetChunkOutput(payload),
+                                stringify!(SearchStreamResetChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "results", first_name,
+                                            stringify!(SearchStreamDoneChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamDoneChunkOutput(payload),
+                                stringify!(SearchStreamDoneChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "results", first_name,
+                                            stringify!(SearchStreamErrorChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamErrorChunkOutput(payload),
+                                stringify!(SearchStreamErrorChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "stream-reset" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamResetChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "stream-reset", first_name,
+                                            stringify!(SearchStreamTextDeltaChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamTextDeltaChunkOutput(payload),
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "stream-reset", first_name,
+                                            stringify!(SearchStreamGroundingChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamGroundingChunkOutput(payload),
+                                stringify!(SearchStreamGroundingChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "stream-reset", first_name,
+                                            stringify!(SearchStreamResultsChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResultsChunkOutput(payload),
+                                stringify!(SearchStreamResultsChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "stream-reset", first_name,
+                                            stringify!(SearchStreamDoneChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamDoneChunkOutput(payload),
+                                stringify!(SearchStreamDoneChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "stream-reset", first_name,
+                                            stringify!(SearchStreamErrorChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamErrorChunkOutput(payload),
+                                stringify!(SearchStreamErrorChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "done" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamDoneChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "done", first_name,
+                                            stringify!(SearchStreamTextDeltaChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamTextDeltaChunkOutput(payload),
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "done", first_name,
+                                            stringify!(SearchStreamGroundingChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamGroundingChunkOutput(payload),
+                                stringify!(SearchStreamGroundingChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "done", first_name,
+                                            stringify!(SearchStreamResultsChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResultsChunkOutput(payload),
+                                stringify!(SearchStreamResultsChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "done", first_name,
+                                            stringify!(SearchStreamResetChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResetChunkOutput(payload),
+                                stringify!(SearchStreamResetChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "done", first_name,
+                                            stringify!(SearchStreamErrorChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamErrorChunkOutput(payload),
+                                stringify!(SearchStreamErrorChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "error" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchStreamErrorChunkOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchStreamErrorChunkOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamTextDeltaChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "error", first_name,
+                                            stringify!(SearchStreamTextDeltaChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamTextDeltaChunkOutput(payload),
+                                stringify!(SearchStreamTextDeltaChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamGroundingChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "error", first_name,
+                                            stringify!(SearchStreamGroundingChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamGroundingChunkOutput(payload),
+                                stringify!(SearchStreamGroundingChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResultsChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "error", first_name,
+                                            stringify!(SearchStreamResultsChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResultsChunkOutput(payload),
+                                stringify!(SearchStreamResultsChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamResetChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "error", first_name,
+                                            stringify!(SearchStreamResetChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamResetChunkOutput(payload),
+                                stringify!(SearchStreamResetChunkOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchStreamDoneChunkOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "error", first_name,
+                                            stringify!(SearchStreamDoneChunkOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchStreamDoneChunkOutput(payload),
+                                stringify!(SearchStreamDoneChunkOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
+                            serde::de::Error::custom(
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
+                                ),
+                            ),
+                        )
+                    }
+                }
+            }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
+            }
+        }
+    }
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant6 {
-    pub error: SearchStreamChunkVariant6Error,
+pub struct SearchStreamTextDeltaChunkOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub choices: Option<Vec<SearchStreamTextDeltaChunkOutputChoicesItem>>,
+    pub delta: String,
     ///Unique identifier for the request.
     #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    pub r#type: SearchStreamChunkVariant6Type,
+    pub r#type: SearchStreamTextDeltaChunkOutputType,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamTextDeltaChunkOutputType {
+    #[default]
+    #[serde(rename = "text-delta")]
+    TextDelta,
+}
+impl SearchStreamTextDeltaChunkOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::TextDelta => "text-delta",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamTextDeltaChunkOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamTextDeltaChunkOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant5 {
+pub struct SearchStreamTextDeltaChunkOutputChoicesItem {
+    pub delta: SearchStreamTextDeltaChunkOutputChoicesItemDelta,
+    pub finish_reason: Option<SearchStreamTextDeltaChunkOutputChoicesItemFinishReason>,
+    ///Constraint: minimum=0
+    pub index: i64,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamTextDeltaChunkOutputChoicesItemFinishReason {
+    #[default]
+    #[serde(rename = "stop")]
+    Stop,
+}
+impl SearchStreamTextDeltaChunkOutputChoicesItemFinishReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stop => "stop",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamTextDeltaChunkOutputChoicesItemFinishReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamTextDeltaChunkOutputChoicesItemFinishReason {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SearchStreamTextDeltaChunkOutputChoicesItemDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub choices: Option<Vec<SearchStreamChunkVariant5ChoicesItem>>,
+    pub citations: Option<
+        Vec<SearchStreamTextDeltaChunkOutputChoicesItemDeltaCitationsItem>,
+    >,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<SearchStreamTextDeltaChunkOutputChoicesItemDeltaRole>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamTextDeltaChunkOutputChoicesItemDeltaRole {
+    #[default]
+    #[serde(rename = "assistant")]
+    Assistant,
+}
+impl SearchStreamTextDeltaChunkOutputChoicesItemDeltaRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Assistant => "assistant",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamTextDeltaChunkOutputChoicesItemDeltaRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamTextDeltaChunkOutputChoicesItemDeltaRole {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamTextDeltaChunkOutputChoicesItemDeltaCitationsItem {
+    pub id: String,
+    ///Source title.
+    pub title: String,
+    ///Source URL.
+    pub url: url::Url,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamResultsChunkOutput {
+    ///Notices about how the results were produced. Pass them to your model with the results. Omitted when there are none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notices: Option<Vec<SearchNoticeOutput>>,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    pub results: Vec<SearchResultOutput>,
+    pub r#type: SearchStreamResultsChunkOutputType,
+    ///Warnings about the request, such as a field that has no effect. Log them; do not pass them to a model. Omitted when there are none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warnings: Option<Vec<SearchWarningOutput>>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamResultsChunkOutputType {
+    #[default]
+    #[serde(rename = "results")]
+    Results,
+}
+impl SearchStreamResultsChunkOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Results => "results",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamResultsChunkOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamResultsChunkOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamResetChunkOutput {
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(rename = "streamReset")]
+    pub stream_reset: bool,
+    pub r#type: SearchStreamResetChunkOutputType,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamResetChunkOutputType {
+    #[default]
+    #[serde(rename = "stream-reset")]
+    StreamReset,
+}
+impl SearchStreamResetChunkOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::StreamReset => "stream-reset",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamResetChunkOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamResetChunkOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub choices: Option<Vec<SearchStreamGroundingChunkOutputChoicesItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citations: Option<Vec<SearchStreamGroundingChunkOutputCitationsItem>>,
+    ///Field-level grounding for synthesized output.
+    pub grounding: Vec<SearchStreamGroundingChunkOutputGroundingItem>,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    pub r#type: SearchStreamGroundingChunkOutputType,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamGroundingChunkOutputType {
+    #[default]
+    #[serde(rename = "grounding")]
+    Grounding,
+}
+impl SearchStreamGroundingChunkOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Grounding => "grounding",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamGroundingChunkOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamGroundingChunkOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutputGroundingItem {
+    ///Sources supporting this output field.
+    pub citations: Vec<SearchStreamGroundingChunkOutputGroundingItemCitationsItem>,
+    ///Model-reported reliability for this field.
+    pub confidence: SearchStreamGroundingChunkOutputGroundingItemConfidence,
+    ///Field path in output.content, for example content or companies[0].funding.
+    pub field: String,
+}
+///Model-reported reliability for this field.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamGroundingChunkOutputGroundingItemConfidence {
+    #[default]
+    #[serde(rename = "low")]
+    Low,
+    #[serde(rename = "medium")]
+    Medium,
+    #[serde(rename = "high")]
+    High,
+}
+impl SearchStreamGroundingChunkOutputGroundingItemConfidence {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamGroundingChunkOutputGroundingItemConfidence {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamGroundingChunkOutputGroundingItemConfidence {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutputGroundingItemCitationsItem {
+    ///Source title.
+    pub title: String,
+    ///Source URL.
+    pub url: url::Url,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutputCitationsItem {
+    pub id: String,
+    ///Source title.
+    pub title: String,
+    ///Source URL.
+    pub url: url::Url,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutputChoicesItem {
+    pub delta: SearchStreamGroundingChunkOutputChoicesItemDelta,
+    pub finish_reason: Option<SearchStreamGroundingChunkOutputChoicesItemFinishReason>,
+    ///Constraint: minimum=0
+    pub index: i64,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamGroundingChunkOutputChoicesItemFinishReason {
+    #[default]
+    #[serde(rename = "stop")]
+    Stop,
+}
+impl SearchStreamGroundingChunkOutputChoicesItemFinishReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stop => "stop",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamGroundingChunkOutputChoicesItemFinishReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamGroundingChunkOutputChoicesItemFinishReason {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SearchStreamGroundingChunkOutputChoicesItemDelta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citations: Option<
+        Vec<SearchStreamGroundingChunkOutputChoicesItemDeltaCitationsItem>,
+    >,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<SearchStreamGroundingChunkOutputChoicesItemDeltaRole>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamGroundingChunkOutputChoicesItemDeltaRole {
+    #[default]
+    #[serde(rename = "assistant")]
+    Assistant,
+}
+impl SearchStreamGroundingChunkOutputChoicesItemDeltaRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Assistant => "assistant",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamGroundingChunkOutputChoicesItemDeltaRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamGroundingChunkOutputChoicesItemDeltaRole {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamGroundingChunkOutputChoicesItemDeltaCitationsItem {
+    pub id: String,
+    ///Source title.
+    pub title: String,
+    ///Source URL.
+    pub url: url::Url,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamErrorChunkOutput {
+    pub error: SearchStreamErrorChunkOutputError,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    pub r#type: SearchStreamErrorChunkOutputType,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchStreamErrorChunkOutputType {
+    #[default]
+    #[serde(rename = "error")]
+    Error,
+}
+impl SearchStreamErrorChunkOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Error => "error",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchStreamErrorChunkOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchStreamErrorChunkOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamErrorChunkOutputError {
+    pub message: String,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchStreamDoneChunkOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub choices: Option<Vec<SearchStreamDoneChunkOutputChoicesItem>>,
     #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
     pub cost_dollars: Option<CostDollarsOutput>,
     pub output: Option<SearchSynthesisOutputOutput>,
     ///Unique identifier for the request.
     #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    ///Server-side processing time in milliseconds, measured at the gateway. Covers retrieval but may exclude later phases such as structured output synthesis, so it can be lower than end-to-end request latency.
+    ///Server-side processing time in milliseconds. May exclude output synthesis time, so it can be lower than end-to-end latency.
     #[serde(rename = "searchTime")]
     pub search_time: f64,
-    pub r#type: SearchStreamChunkVariant5Type,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant4 {
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    #[serde(rename = "streamReset")]
-    pub stream_reset: bool,
-    pub r#type: SearchStreamChunkVariant4Type,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant3 {
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    pub results: Vec<SearchResultOutput>,
-    pub r#type: SearchStreamChunkVariant3Type,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2 {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub choices: Option<Vec<SearchStreamChunkVariant2ChoicesItem>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub citations: Option<Vec<SearchStreamChunkVariant2CitationsItem>>,
-    ///Field-level grounding for synthesized output.
-    pub grounding: Vec<SearchStreamChunkVariant2GroundingItem>,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    pub r#type: SearchStreamChunkVariant2Type,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub choices: Option<Vec<SearchStreamChunkVariantChoicesItem>>,
-    pub delta: String,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    pub r#type: SearchStreamChunkVariantType,
-}
-///Schema for each JSON payload emitted in a `/search` server-sent event stream. Each event is emitted as `data: <json>` and the stream terminates with `data: [DONE]`, which is not represented by this JSON schema.
-#[derive(Debug, Clone)]
-pub enum SearchStreamChunk {
-    SearchStreamChunkVariant(SearchStreamChunkVariant),
-    SearchStreamChunkVariant2(SearchStreamChunkVariant2),
-    SearchStreamChunkVariant3(SearchStreamChunkVariant3),
-    SearchStreamChunkVariant4(SearchStreamChunkVariant4),
-    SearchStreamChunkVariant5(SearchStreamChunkVariant5),
-    SearchStreamChunkVariant6(SearchStreamChunkVariant6),
-}
-impl Serialize for SearchStreamChunk {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::SearchStreamChunkVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchStreamChunkVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchStreamChunkVariant3(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchStreamChunkVariant4(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchStreamChunkVariant5(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchStreamChunkVariant6(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-        }
-    }
-}
-impl<'de> Deserialize<'de> for SearchStreamChunk {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"text-delta\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"grounding\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant2(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"results\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant3,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant3(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("streamReset")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "true")
-                        })
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"stream-reset\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant4,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant4(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"done\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant5,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant5(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"error\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchStreamChunkVariant6,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ", stringify!(SearchStreamChunk),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchStreamChunkVariant6(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ", stringify!(SearchStreamChunk),
-                    " preserved the complete input",
-                ),
-            ))
-    }
+    pub r#type: SearchStreamDoneChunkOutputType,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariantType {
-    #[default]
-    #[serde(rename = "text-delta")]
-    TextDelta,
-}
-impl SearchStreamChunkVariantType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::TextDelta => "text-delta",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariantType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariantType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariantChoicesItem {
-    pub delta: SearchStreamChunkVariantChoicesItemDelta,
-    pub finish_reason: Option<SearchStreamChunkVariantChoicesItemFinishReason>,
-    ///Constraint: minimum=0
-    pub index: i64,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariantChoicesItemFinishReason {
-    #[default]
-    #[serde(rename = "stop")]
-    Stop,
-}
-impl SearchStreamChunkVariantChoicesItemFinishReason {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Stop => "stop",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariantChoicesItemFinishReason {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariantChoicesItemFinishReason {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchStreamChunkVariantChoicesItemDelta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub citations: Option<Vec<SearchStreamChunkVariantChoicesItemDeltaCitationsItem>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<SearchStreamChunkVariantChoicesItemDeltaRole>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariantChoicesItemDeltaRole {
-    #[default]
-    #[serde(rename = "assistant")]
-    Assistant,
-}
-impl SearchStreamChunkVariantChoicesItemDeltaRole {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Assistant => "assistant",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariantChoicesItemDeltaRole {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariantChoicesItemDeltaRole {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariantChoicesItemDeltaCitationsItem {
-    pub id: String,
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant6Type {
-    #[default]
-    #[serde(rename = "error")]
-    Error,
-}
-impl SearchStreamChunkVariant6Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Error => "error",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant6Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant6Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant6Error {
-    pub message: String,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant5Type {
+pub enum SearchStreamDoneChunkOutputType {
     #[default]
     #[serde(rename = "done")]
     Done,
 }
-impl SearchStreamChunkVariant5Type {
+impl SearchStreamDoneChunkOutputType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Done => "done",
         }
     }
 }
-impl ::std::fmt::Display for SearchStreamChunkVariant5Type {
+impl ::std::fmt::Display for SearchStreamDoneChunkOutputType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchStreamChunkVariant5Type {
+impl AsRef<str> for SearchStreamDoneChunkOutputType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant5ChoicesItem {
-    pub delta: SearchStreamChunkVariant5ChoicesItemDelta,
-    pub finish_reason: Option<SearchStreamChunkVariant5ChoicesItemFinishReason>,
+pub struct SearchStreamDoneChunkOutputChoicesItem {
+    pub delta: SearchStreamDoneChunkOutputChoicesItemDelta,
+    pub finish_reason: Option<SearchStreamDoneChunkOutputChoicesItemFinishReason>,
     ///Constraint: minimum=0
     pub index: i64,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant5ChoicesItemFinishReason {
+pub enum SearchStreamDoneChunkOutputChoicesItemFinishReason {
     #[default]
     #[serde(rename = "stop")]
     Stop,
 }
-impl SearchStreamChunkVariant5ChoicesItemFinishReason {
+impl SearchStreamDoneChunkOutputChoicesItemFinishReason {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Stop => "stop",
         }
     }
 }
-impl ::std::fmt::Display for SearchStreamChunkVariant5ChoicesItemFinishReason {
+impl ::std::fmt::Display for SearchStreamDoneChunkOutputChoicesItemFinishReason {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchStreamChunkVariant5ChoicesItemFinishReason {
+impl AsRef<str> for SearchStreamDoneChunkOutputChoicesItemFinishReason {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchStreamChunkVariant5ChoicesItemDelta {
+pub struct SearchStreamDoneChunkOutputChoicesItemDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub citations: Option<Vec<SearchStreamChunkVariant5ChoicesItemDeltaCitationsItem>>,
+    pub citations: Option<Vec<SearchStreamDoneChunkOutputChoicesItemDeltaCitationsItem>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<SearchStreamChunkVariant5ChoicesItemDeltaRole>,
+    pub role: Option<SearchStreamDoneChunkOutputChoicesItemDeltaRole>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant5ChoicesItemDeltaRole {
+pub enum SearchStreamDoneChunkOutputChoicesItemDeltaRole {
     #[default]
     #[serde(rename = "assistant")]
     Assistant,
 }
-impl SearchStreamChunkVariant5ChoicesItemDeltaRole {
+impl SearchStreamDoneChunkOutputChoicesItemDeltaRole {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Assistant => "assistant",
         }
     }
 }
-impl ::std::fmt::Display for SearchStreamChunkVariant5ChoicesItemDeltaRole {
+impl ::std::fmt::Display for SearchStreamDoneChunkOutputChoicesItemDeltaRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchStreamChunkVariant5ChoicesItemDeltaRole {
+impl AsRef<str> for SearchStreamDoneChunkOutputChoicesItemDeltaRole {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant5ChoicesItemDeltaCitationsItem {
+pub struct SearchStreamDoneChunkOutputChoicesItemDeltaCitationsItem {
     pub id: String,
     ///Source title.
     pub title: String,
     ///Source URL.
     pub url: url::Url,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant4Type {
-    #[default]
-    #[serde(rename = "stream-reset")]
-    StreamReset,
-}
-impl SearchStreamChunkVariant4Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::StreamReset => "stream-reset",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant4Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant4Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant3Type {
-    #[default]
-    #[serde(rename = "results")]
-    Results,
-}
-impl SearchStreamChunkVariant3Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Results => "results",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant3Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant3Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant2Type {
-    #[default]
-    #[serde(rename = "grounding")]
-    Grounding,
-}
-impl SearchStreamChunkVariant2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Grounding => "grounding",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2GroundingItem {
-    ///Sources supporting this output field.
-    pub citations: Vec<SearchStreamChunkVariant2GroundingItemCitationsItem>,
-    ///Model-reported reliability for this field.
-    pub confidence: SearchStreamChunkVariant2GroundingItemConfidence,
-    ///Field path in output.content, for example content or companies[0].funding.
-    pub field: String,
-}
-///Model-reported reliability for this field.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant2GroundingItemConfidence {
-    #[default]
-    #[serde(rename = "low")]
-    Low,
-    #[serde(rename = "medium")]
-    Medium,
-    #[serde(rename = "high")]
-    High,
-}
-impl SearchStreamChunkVariant2GroundingItemConfidence {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant2GroundingItemConfidence {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant2GroundingItemConfidence {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2GroundingItemCitationsItem {
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2CitationsItem {
-    pub id: String,
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2ChoicesItem {
-    pub delta: SearchStreamChunkVariant2ChoicesItemDelta,
-    pub finish_reason: Option<SearchStreamChunkVariant2ChoicesItemFinishReason>,
-    ///Constraint: minimum=0
-    pub index: i64,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant2ChoicesItemFinishReason {
-    #[default]
-    #[serde(rename = "stop")]
-    Stop,
-}
-impl SearchStreamChunkVariant2ChoicesItemFinishReason {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Stop => "stop",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant2ChoicesItemFinishReason {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant2ChoicesItemFinishReason {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchStreamChunkVariant2ChoicesItemDelta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub citations: Option<Vec<SearchStreamChunkVariant2ChoicesItemDeltaCitationsItem>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<SearchStreamChunkVariant2ChoicesItemDeltaRole>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkVariant2ChoicesItemDeltaRole {
-    #[default]
-    #[serde(rename = "assistant")]
-    Assistant,
-}
-impl SearchStreamChunkVariant2ChoicesItemDeltaRole {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Assistant => "assistant",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkVariant2ChoicesItemDeltaRole {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkVariant2ChoicesItemDeltaRole {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkVariant2ChoicesItemDeltaCitationsItem {
-    pub id: String,
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkTypeStreamReset {
-    #[default]
-    #[serde(rename = "stream-reset")]
-    StreamReset,
-}
-impl SearchStreamChunkTypeStreamReset {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::StreamReset => "stream-reset",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkTypeStreamReset {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkTypeStreamReset {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkTypeResults {
-    #[default]
-    #[serde(rename = "results")]
-    Results,
-}
-impl SearchStreamChunkTypeResults {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Results => "results",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkTypeResults {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkTypeResults {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkTypeGrounding {
-    #[default]
-    #[serde(rename = "grounding")]
-    Grounding,
-}
-impl SearchStreamChunkTypeGrounding {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Grounding => "grounding",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkTypeGrounding {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkTypeGrounding {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkTypeError {
-    #[default]
-    #[serde(rename = "error")]
-    Error,
-}
-impl SearchStreamChunkTypeError {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Error => "error",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkTypeError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkTypeError {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkTypeDone {
-    #[default]
-    #[serde(rename = "done")]
-    Done,
-}
-impl SearchStreamChunkTypeDone {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Done => "done",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkTypeDone {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkTypeDone {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkType {
-    #[default]
-    #[serde(rename = "text-delta")]
-    TextDelta,
-}
-impl SearchStreamChunkType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::TextDelta => "text-delta",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkGroundingItem {
-    ///Sources supporting this output field.
-    pub citations: Vec<SearchStreamChunkGroundingItemCitationsItem>,
-    ///Model-reported reliability for this field.
-    pub confidence: SearchStreamChunkGroundingItemConfidence,
-    ///Field path in output.content, for example content or companies[0].funding.
-    pub field: String,
-}
-///Model-reported reliability for this field.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkGroundingItemConfidence {
-    #[default]
-    #[serde(rename = "low")]
-    Low,
-    #[serde(rename = "medium")]
-    Medium,
-    #[serde(rename = "high")]
-    High,
-}
-impl SearchStreamChunkGroundingItemConfidence {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkGroundingItemConfidence {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkGroundingItemConfidence {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkGroundingItemCitationsItem {
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkError {
-    pub message: String,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkCitationsItem {
-    pub id: String,
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkChoicesItem {
-    pub delta: SearchStreamChunkChoicesItemDelta,
-    pub finish_reason: Option<SearchStreamChunkChoicesItemFinishReason>,
-    ///Constraint: minimum=0
-    pub index: i64,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkChoicesItemFinishReason {
-    #[default]
-    #[serde(rename = "stop")]
-    Stop,
-}
-impl SearchStreamChunkChoicesItemFinishReason {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Stop => "stop",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkChoicesItemFinishReason {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkChoicesItemFinishReason {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchStreamChunkChoicesItemDelta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub citations: Option<Vec<SearchStreamChunkChoicesItemDeltaCitationsItem>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<SearchStreamChunkChoicesItemDeltaRole>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchStreamChunkChoicesItemDeltaRole {
-    #[default]
-    #[serde(rename = "assistant")]
-    Assistant,
-}
-impl SearchStreamChunkChoicesItemDeltaRole {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Assistant => "assistant",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchStreamChunkChoicesItemDeltaRole {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchStreamChunkChoicesItemDeltaRole {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchStreamChunkChoicesItemDeltaCitationsItem {
-    pub id: String,
-    ///Source title.
-    pub title: String,
-    ///Source URL.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResponseVariant2 {
-    ///Deprecated. Combined context string from search results. Use highlights or text instead.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub context: Option<String>,
-    #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
-    pub cost_dollars: Option<CostDollarsOutput>,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    ///Deprecated legacy field. Current production responses may return an empty string; clients should not branch on this value.
-    #[serde(rename = "resolvedSearchType", skip_serializing_if = "Option::is_none")]
-    pub resolved_search_type: Option<String>,
-    ///A list of search results containing title, URL, published date, and author.
-    pub results: Vec<SearchResultOutput>,
-    ///Server-side processing time in milliseconds, measured at the gateway. Covers retrieval but may exclude later phases such as structured output synthesis, so it can be lower than end-to-end request latency.
-    #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
-    pub search_time: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResponseVariant {
-    ///Deprecated. Combined context string from search results. Use highlights or text instead.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub context: Option<String>,
-    #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
-    pub cost_dollars: Option<CostDollarsOutput>,
-    pub output: SearchSynthesisOutputOutput,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    ///Deprecated legacy field. Current production responses may return an empty string; clients should not branch on this value.
-    #[serde(rename = "resolvedSearchType", skip_serializing_if = "Option::is_none")]
-    pub resolved_search_type: Option<String>,
-    ///A list of search results containing title, URL, published date, and author.
-    pub results: Vec<SearchResultOutput>,
-    ///Server-side processing time in milliseconds, measured at the gateway. Covers retrieval but may exclude later phases such as structured output synthesis, so it can be lower than end-to-end request latency.
-    #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
-    pub search_time: Option<f64>,
 }
 #[derive(Debug, Clone)]
 pub enum SearchResponse402 {
@@ -1561,8 +1964,8 @@ impl<'de> Deserialize<'de> for SearchResponse402 {
 }
 #[derive(Debug, Clone)]
 pub enum SearchResponse {
-    SearchResponseVariant(SearchResponseVariant),
-    SearchResponseVariant2(SearchResponseVariant2),
+    SearchSynthesisResponse(SearchSynthesisResponse),
+    SearchResultsResponse(SearchResultsResponse),
 }
 impl Serialize for SearchResponse {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1570,10 +1973,10 @@ impl Serialize for SearchResponse {
         S: serde::Serializer,
     {
         match self {
-            Self::SearchResponseVariant(value) => {
+            Self::SearchSynthesisResponse(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
-            Self::SearchResponseVariant2(value) => {
+            Self::SearchResultsResponse(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
         }
@@ -1588,7 +1991,7 @@ impl<'de> Deserialize<'de> for SearchResponse {
         let mut matched = None;
         if true {
             if let Ok(candidate) = serde_json::from_value::<
-                SearchResponseVariant,
+                SearchSynthesisResponse,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -1604,13 +2007,13 @@ impl<'de> Deserialize<'de> for SearchResponse {
                             ),
                         );
                     }
-                    matched = Some(Self::SearchResponseVariant(candidate));
+                    matched = Some(Self::SearchSynthesisResponse(candidate));
                 }
             }
         }
         if true {
             if let Ok(candidate) = serde_json::from_value::<
-                SearchResponseVariant2,
+                SearchResultsResponse,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -1626,7 +2029,7 @@ impl<'de> Deserialize<'de> for SearchResponse {
                             ),
                         );
                     }
-                    matched = Some(Self::SearchResponseVariant2(candidate));
+                    matched = Some(Self::SearchResultsResponse(candidate));
                 }
             }
         }
@@ -1638,6 +2041,32 @@ impl<'de> Deserialize<'de> for SearchResponse {
                 ),
             ))
     }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchSynthesisResponse {
+    ///Deprecated. Use `results[].highlights` or `results[].text` instead. Combined context string from search results.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
+    pub cost_dollars: Option<CostDollarsOutput>,
+    ///Notices about how the results were produced. Pass them to your model with the results. Omitted when there are none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notices: Option<Vec<SearchNoticeOutput>>,
+    pub output: SearchSynthesisOutputOutput,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    ///Deprecated. May be an empty string. Do not branch on this value.
+    #[serde(rename = "resolvedSearchType", skip_serializing_if = "Option::is_none")]
+    pub resolved_search_type: Option<String>,
+    ///A list of search results containing title, URL, published date, and author.
+    pub results: Vec<SearchResultOutput>,
+    ///Server-side processing time in milliseconds. May exclude output synthesis time, so it can be lower than end-to-end latency.
+    #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
+    pub search_time: Option<f64>,
+    ///Warnings about the request, such as a field that has no effect. Log them; do not pass them to a model. Omitted when there are none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warnings: Option<Vec<SearchWarningOutput>>,
 }
 ///Synthesized output. Returned when outputSchema is provided.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -1703,29 +2132,39 @@ pub enum SearchSynthesisOutputOutputContent {
     ),
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchRequestOutputSchemaVariant2 {
-    #[serde(rename = "additionalProperties", skip_serializing_if = "Option::is_none")]
-    pub additional_properties_2: Option<bool>,
+pub struct SearchResultsResponse {
+    ///Deprecated. Use `results[].highlights` or `results[].text` instead. Combined context string from search results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub context: Option<String>,
+    #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
+    pub cost_dollars: Option<CostDollarsOutput>,
+    ///Notices about how the results were produced. Pass them to your model with the results. Omitted when there are none.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub properties: Option<SearchRequestOutputSchemaVariant2Properties>,
+    pub notices: Option<Vec<SearchNoticeOutput>>,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    ///Deprecated. May be an empty string. Do not branch on this value.
+    #[serde(rename = "resolvedSearchType", skip_serializing_if = "Option::is_none")]
+    pub resolved_search_type: Option<String>,
+    ///A list of search results containing title, URL, published date, and author.
+    pub results: Vec<SearchResultOutput>,
+    ///Server-side processing time in milliseconds. May exclude output synthesis time, so it can be lower than end-to-end latency.
+    #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
+    pub search_time: Option<f64>,
+    ///Warnings about the request, such as a field that has no effect. Log them; do not pass them to a model. Omitted when there are none.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub required: Option<Vec<String>>,
-    pub r#type: SearchRequestOutputSchemaVariant2Type,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
+    pub warnings: Option<Vec<SearchWarningOutput>>,
 }
+///A note about the request itself, for whoever maintains the code that builds it. Log it; do not pass it to a model. A warning never changes the status code or the results.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchRequestOutputSchemaVariant {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub r#type: SearchRequestOutputSchemaVariantType,
+pub struct SearchWarningOutput {
+    ///Machine-readable warning code, UPPER_SNAKE. `IGNORED_FIELD`: the field at `path` is accepted and has no effect. Codes are an open set: tolerate codes you do not recognize.
+    pub code: String,
+    ///Human-readable and complete on its own: what to change in the request.
+    pub message: String,
+    ///JSON Pointer to the request field the warning is about.
+    pub path: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SearchRequest {
@@ -1781,6 +2220,14 @@ pub struct SearchRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub exclude_domains: Option<Option<Vec<String>>>,
+    ///Deprecated. List of strings that must not be present in the webpage text of results. Matching is approximate (word-level rather than exact phrase). Up to 50 strings, each up to 4096 characters.
+    #[serde(
+        rename = "excludeText",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub exclude_text: Option<Option<Vec<String>>>,
     #[serde(
         rename = "includeDomains",
         skip_serializing_if = "Option::is_none",
@@ -1788,6 +2235,14 @@ pub struct SearchRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub include_domains: Option<Option<Vec<String>>>,
+    ///Deprecated. List of strings that must be present in the webpage text of results. Matching is approximate (word-level rather than exact phrase), so a multi-word entry can match pages where its words appear separately. Up to 50 strings, each up to 4096 characters.
+    #[serde(
+        rename = "includeText",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub include_text: Option<Option<Vec<String>>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
@@ -1801,13 +2256,20 @@ pub struct SearchRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub num_results: Option<Option<i64>>,
+    ///The broader goal this search serves: the task the caller is working on, beyond the query itself. When exposing this field to an agent as a tool parameter, describe it as: "Goal for this search turn; say which documents should rank first, which should be excluded, and what specific facts or figures to pull from them."
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub objective: Option<Option<String>>,
     #[serde(
         rename = "outputSchema",
         skip_serializing_if = "Option::is_none",
         default,
         deserialize_with = "tri_state_serde::deserialize"
     )]
-    pub output_schema: Option<Option<SearchRequestOutputSchema>>,
+    pub output_schema: Option<Option<SearchRequestOutputSchemaInline>>,
     ///The query string for the search.
     ///Constraint: minLength=1
     pub query: String,
@@ -1838,19 +2300,36 @@ pub struct SearchRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub system_prompt: Option<Option<String>>,
+    /**The search mode to use. Defaults to `auto`, a balanced mode recommended for most applications.
+
+- `auto`: The default. A balanced mode that optimizes for both quality and speed and is recommended for most applications.
+- `lite`: Low-cost, low-latency search for real-time and interactive experiences such as chat, voice agents, and autocomplete. Accepts only `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`; a request that sets any other parameter is rejected. Lite serves content directly from Exa’s regularly refreshed search index, without fetching pages at query time. Freshness options that require live fetching are not supported.
+- `deep-lite`: Performs lightweight research with synthesized results and a consistent 4-second latency, lower than full deep search.
+- `deep`: Conducts comprehensive multi-step research with synthesis.
+- `instant`: Legacy. Use `lite` instead. Runs a minimum-latency search that trades some search depth for speed. Unlike `lite`, it accepts every search parameter.
+- `fast`: Legacy. Use `lite` instead. Runs a reduced-latency search for user-facing and interactive workflows. Unlike `lite`, it accepts every search parameter.
+- `deep-reasoning`: Legacy. Use `deep` instead. Runs `deep` with stronger reasoning at each step, for complex analysis and decision-making tasks. For agentic, multi-step research, use the Agent API.*/
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
         deserialize_with = "tri_state_serde::deserialize"
     )]
-    pub r#type: Option<Option<SearchRequestTypeInstant>>,
+    pub r#type: Option<Option<SearchRequestType>>,
+    ///An opaque ID your platform assigns to the end user this request is made for, such as a UUID. Lets Exa attribute usage to that end user rather than your whole team. Must not contain personal information such as an email address, phone number, username, or name. Hash such values before sending them. 1 to 64 characters: letters, digits, underscores, and hyphens. Retained even when your team has Zero Data Retention enabled. Does not affect results.
+    #[serde(
+        rename = "userIdentifier",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub user_identifier: Option<Option<String>>,
     #[serde(
         rename = "userLocation",
         skip_serializing_if = "Option::is_none",
         default,
         deserialize_with = "tri_state_serde::deserialize"
     )]
-    pub user_location: Option<Option<String>>,
+    pub user_location: Option<Option<SearchRequestUserLocation>>,
 }
 impl SearchRequest {
     /// Construct this request with every required wire field.
@@ -1865,15 +2344,19 @@ impl SearchRequest {
             end_crawl_date: None,
             end_published_date: None,
             exclude_domains: None,
+            exclude_text: None,
             include_domains: None,
+            include_text: None,
             moderation: None,
             num_results: None,
+            objective: None,
             output_schema: None,
             start_crawl_date: None,
             start_published_date: None,
             stream: None,
             system_prompt: None,
             r#type: None,
+            user_identifier: None,
             user_location: None,
         }
     }
@@ -2086,6 +2569,28 @@ impl SearchRequestBuilder {
         self
     }
     #[doc = concat!(
+        "Set the optional nullable `", "excludeText", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn exclude_text(mut self, exclude_text: Vec<String>) -> Self {
+        self.value.exclude_text = Some(Some(exclude_text));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "excludeText", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn exclude_text_null(mut self) -> Self {
+        self.value.exclude_text = Some(None);
+        self
+    }
+    #[doc = concat!("Omit the optional nullable `", "excludeText", "` request field.")]
+    #[must_use]
+    pub fn exclude_text_absent(mut self) -> Self {
+        self.value.exclude_text = None;
+        self
+    }
+    #[doc = concat!(
         "Set the optional nullable `", "includeDomains", "` request field to a value."
     )]
     #[must_use]
@@ -2107,6 +2612,28 @@ impl SearchRequestBuilder {
     #[must_use]
     pub fn include_domains_absent(mut self) -> Self {
         self.value.include_domains = None;
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "includeText", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn include_text(mut self, include_text: Vec<String>) -> Self {
+        self.value.include_text = Some(Some(include_text));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "includeText", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn include_text_null(mut self) -> Self {
+        self.value.include_text = Some(None);
+        self
+    }
+    #[doc = concat!("Omit the optional nullable `", "includeText", "` request field.")]
+    #[must_use]
+    pub fn include_text_absent(mut self) -> Self {
+        self.value.include_text = None;
         self
     }
     #[doc = concat!(
@@ -2154,10 +2681,35 @@ impl SearchRequestBuilder {
         self
     }
     #[doc = concat!(
+        "Set the optional nullable `", "objective", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn objective(mut self, objective: String) -> Self {
+        self.value.objective = Some(Some(objective));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "objective", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn objective_null(mut self) -> Self {
+        self.value.objective = Some(None);
+        self
+    }
+    #[doc = concat!("Omit the optional nullable `", "objective", "` request field.")]
+    #[must_use]
+    pub fn objective_absent(mut self) -> Self {
+        self.value.objective = None;
+        self
+    }
+    #[doc = concat!(
         "Set the optional nullable `", "outputSchema", "` request field to a value."
     )]
     #[must_use]
-    pub fn output_schema(mut self, output_schema: SearchRequestOutputSchema) -> Self {
+    pub fn output_schema(
+        mut self,
+        output_schema: SearchRequestOutputSchemaInline,
+    ) -> Self {
         self.value.output_schema = Some(Some(output_schema));
         self
     }
@@ -2279,7 +2831,7 @@ impl SearchRequestBuilder {
         "Set the optional nullable `", "type", "` request field to a value."
     )]
     #[must_use]
-    pub fn r#type(mut self, r#type: SearchRequestTypeInstant) -> Self {
+    pub fn r#type(mut self, r#type: SearchRequestType) -> Self {
         self.value.r#type = Some(Some(r#type));
         self
     }
@@ -2298,10 +2850,34 @@ impl SearchRequestBuilder {
         self
     }
     #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn user_identifier(mut self, user_identifier: String) -> Self {
+        self.value.user_identifier = Some(Some(user_identifier));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn user_identifier_null(mut self) -> Self {
+        self.value.user_identifier = Some(None);
+        self
+    }
+    #[doc = concat!(
+        "Omit the optional nullable `", "userIdentifier", "` request field."
+    )]
+    #[must_use]
+    pub fn user_identifier_absent(mut self) -> Self {
+        self.value.user_identifier = None;
+        self
+    }
+    #[doc = concat!(
         "Set the optional nullable `", "userLocation", "` request field to a value."
     )]
     #[must_use]
-    pub fn user_location(mut self, user_location: String) -> Self {
+    pub fn user_location(mut self, user_location: SearchRequestUserLocation) -> Self {
         self.value.user_location = Some(Some(user_location));
         self
     }
@@ -2324,183 +2900,72 @@ impl SearchRequestBuilder {
         self.value
     }
 }
-///The search mode to use. `auto` (default) is a balanced mode that optimizes for both quality and speed and is recommended for most applications. `fast` returns high-quality results with reduced latency, making it a good fit for user-facing search and interactive workflows. `instant` is optimized for minimum response time, trading some search depth for speed in real-time experiences such as chat, voice agents, and autocomplete. `deep-lite` performs lightweight research with synthesized results and a consistent 4-second latency, lower than full deep search. `deep` conducts comprehensive multi-step research with synthesis, while `deep-reasoning` adds stronger reasoning for complex analysis and decision-making tasks.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchRequestTypeInstant {
-    #[serde(rename = "instant")]
-    Instant,
-    #[serde(rename = "fast")]
-    Fast,
-    #[default]
-    #[serde(rename = "auto")]
+///The end user's location, as a two-letter ISO 3166-1 country code (e.g. `US`) or an object with `country`, a `latitude` and `longitude` pair, or both. The country localizes results. Coordinates are used only for queries that name no place but depend on where the user is, such as "coffee near me". They do not set a country, so send `country` with them to localize results. Send only the precision your use case needs.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum SearchRequestUserLocation {
+    String(String),
+    SearchRequestUserLocationVariant2(SearchRequestUserLocationVariant2),
+    SearchRequestUserLocationVariant3(SearchRequestUserLocationVariant3),
+}
+/**The search mode to use. Defaults to `auto`, a balanced mode recommended for most applications.
+
+- `auto`: The default. A balanced mode that optimizes for both quality and speed and is recommended for most applications.
+- `lite`: Low-cost, low-latency search for real-time and interactive experiences such as chat, voice agents, and autocomplete. Accepts only `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`; a request that sets any other parameter is rejected. Lite serves content directly from Exa’s regularly refreshed search index, without fetching pages at query time. Freshness options that require live fetching are not supported.
+- `deep-lite`: Performs lightweight research with synthesized results and a consistent 4-second latency, lower than full deep search.
+- `deep`: Conducts comprehensive multi-step research with synthesis.
+- `instant`: Legacy. Use `lite` instead. Runs a minimum-latency search that trades some search depth for speed. Unlike `lite`, it accepts every search parameter.
+- `fast`: Legacy. Use `lite` instead. Runs a reduced-latency search for user-facing and interactive workflows. Unlike `lite`, it accepts every search parameter.
+- `deep-reasoning`: Legacy. Use `deep` instead. Runs `deep` with stronger reasoning at each step, for complex analysis and decision-making tasks. For agentic, multi-step research, use the Agent API.*/
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SearchRequestType {
     Auto,
-    #[serde(rename = "deep-lite")]
+    Lite,
     DeepLite,
-    #[serde(rename = "deep")]
     Deep,
-    #[serde(rename = "deep-reasoning")]
+    Instant,
+    Fast,
     DeepReasoning,
+    /// Custom or unknown model identifier
+    Custom(String),
 }
-impl SearchRequestTypeInstant {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Instant => "instant",
-            Self::Fast => "fast",
-            Self::Auto => "auto",
-            Self::DeepLite => "deep-lite",
-            Self::Deep => "deep",
-            Self::DeepReasoning => "deep-reasoning",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchRequestTypeInstant {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchRequestTypeInstant {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///JSON schema for synthesized output. Supported root types are "text" and "object". When provided, the response includes an output object whose content matches this schema. Works with every search type and adds about 2 seconds of synthesis latency on top of the selected search type.
-#[derive(Debug, Clone)]
-pub enum SearchRequestOutputSchema {
-    SearchRequestOutputSchemaVariant(SearchRequestOutputSchemaVariant),
-    SearchRequestOutputSchemaVariant2(SearchRequestOutputSchemaVariant2),
-}
-impl Serialize for SearchRequestOutputSchema {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::SearchRequestOutputSchemaVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::SearchRequestOutputSchemaVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-        }
-    }
-}
-impl<'de> Deserialize<'de> for SearchRequestOutputSchema {
+impl<'de> serde::Deserialize<'de> for SearchRequestType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"text\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchRequestOutputSchemaVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchRequestOutputSchema),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchRequestOutputSchemaVariant(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"object\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchRequestOutputSchemaVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchRequestOutputSchema),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchRequestOutputSchemaVariant2(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ", stringify!(SearchRequestOutputSchema),
-                    " preserved the complete input",
-                ),
-            ))
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchRequestTypeObject {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchRequestTypeObject {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "auto" => Ok(SearchRequestType::Auto),
+            "lite" => Ok(SearchRequestType::Lite),
+            "deep-lite" => Ok(SearchRequestType::DeepLite),
+            "deep" => Ok(SearchRequestType::Deep),
+            "instant" => Ok(SearchRequestType::Instant),
+            "fast" => Ok(SearchRequestType::Fast),
+            "deep-reasoning" => Ok(SearchRequestType::DeepReasoning),
+            _ => Ok(SearchRequestType::Custom(value)),
         }
     }
 }
-impl ::std::fmt::Display for SearchRequestTypeObject {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
+impl serde::Serialize for SearchRequestType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
     }
-}
-impl AsRef<str> for SearchRequestTypeObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchRequestType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
 }
 impl SearchRequestType {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &str {
         match self {
-            Self::Text => "text",
+            SearchRequestType::Auto => "auto",
+            SearchRequestType::Lite => "lite",
+            SearchRequestType::DeepLite => "deep-lite",
+            SearchRequestType::Deep => "deep",
+            SearchRequestType::Instant => "instant",
+            SearchRequestType::Fast => "fast",
+            SearchRequestType::DeepReasoning => "deep-reasoning",
+            SearchRequestType::Custom(s) => s.as_str(),
         }
     }
 }
@@ -2514,73 +2979,222 @@ impl AsRef<str> for SearchRequestType {
         self.as_str()
     }
 }
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchRequestProperties {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
+#[derive(Debug, Clone)]
+pub enum SearchRequestOutputSchemaInline {
+    OutputSchemaText(OutputSchemaText),
+    OutputSchemaObject(OutputSchemaObject),
 }
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchRequestOutputSchemaVariantType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-}
-impl SearchRequestOutputSchemaVariantType {
-    pub fn as_str(&self) -> &'static str {
+impl serde::Serialize for SearchRequestOutputSchemaInline {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
         match self {
-            Self::Text => "text",
+            Self::OutputSchemaText(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaText),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "text") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaText),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("text".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
+            Self::OutputSchemaObject(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaObject),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "object") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaObject),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("object".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
+            }
         }
     }
 }
-impl ::std::fmt::Display for SearchRequestOutputSchemaVariantType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchRequestOutputSchemaVariantType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchRequestOutputSchemaVariant2Type {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchRequestOutputSchemaVariant2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
+impl<'de> serde::Deserialize<'de> for SearchRequestOutputSchemaInline {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "text" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaText,
+                        >(value.clone()) {
+                            Ok(payload) => return Ok(Self::OutputSchemaText(payload)),
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text", first_name, stringify!(OutputSchemaObject),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaObject(payload),
+                                stringify!(OutputSchemaObject),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "object" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            Ok(payload) => return Ok(Self::OutputSchemaObject(payload)),
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaText,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "object", first_name, stringify!(OutputSchemaText),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaText(payload),
+                                stringify!(OutputSchemaText),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
+                            serde::de::Error::custom(
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
+                                ),
+                            ),
+                        )
+                    }
+                }
+            }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
+            }
         }
     }
 }
-impl ::std::fmt::Display for SearchRequestOutputSchemaVariant2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchRequestOutputSchemaVariant2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchRequestOutputSchemaVariant2Properties {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SearchRequestContext {
@@ -2611,7 +3225,7 @@ impl AsRef<str> for SearchRequestCompliance {
         self.as_str()
     }
 }
-///A data category to focus on. Known categories include `company`, `publication`, `news`, `personal site`, `financial report`, and `people`. Other strings are accepted and used as category hints for search. The `people` and `company` categories have improved quality for finding people profiles and company pages. The `publication` category surfaces scholarly publications such as research papers, preprints, and journal articles, with structured metadata like authors, venue, and citations. Note: The `company` and `people` categories only support a limited set of filters. The following parameters are NOT supported for these categories: `startPublishedDate`, `endPublishedDate`, `excludeDomains`. Using unsupported parameters will result in a 400 error.
+///A data category to focus on. Other strings are accepted and used as category hints. `people` and `company` return higher-quality people profiles and company pages. `publication` returns scholarly publications such as research papers, preprints, and journal articles, with metadata like authors, venue, and citations. `company` and `people` do not support `startPublishedDate` or `endPublishedDate`, and `people` also does not support `excludeDomains`. Requests that set an unsupported filter return a 400 error.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum SearchRequestCategory {
     #[default]
@@ -2650,189 +3264,28 @@ impl AsRef<str> for SearchRequestCategory {
         self.as_str()
     }
 }
+///A note about how the results were produced, written to be passed to a model with the results.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchMonitorOutputSchemaVariant2 {
-    #[serde(rename = "additionalProperties", skip_serializing_if = "Option::is_none")]
-    pub additional_properties_2: Option<bool>,
+pub struct SearchNoticeOutput {
+    ///Machine-readable notice code, UPPER_SNAKE. `RESTRICTIONS_RELAXED`: the `site:` or exact-phrase restrictions written in the query matched nothing, so the results come from a search with them removed; filters set in the request body were kept. Codes are an open set: tolerate codes you do not recognize.
+    pub code: String,
+    ///Optional extra context for a harness or model. An open object: no schema is promised for its keys, and it never carries information that `message` lacks.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub properties: Option<SearchMonitorOutputSchemaVariant2Properties>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required: Option<Vec<String>>,
-    pub r#type: SearchMonitorOutputSchemaVariant2Type,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
+    pub details: Option<SearchNoticeOutputDetails>,
+    ///Human-readable and complete on its own; written to be shown to a model.
+    pub message: String,
+    ///JSON Pointer to the request field the notice is about.
+    pub path: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaVariant2Type {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchMonitorOutputSchemaVariant2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaVariant2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaVariant2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
+///Optional extra context for a harness or model. An open object: no schema is promised for its keys, and it never carries information that `message` lacks.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorOutputSchemaVariant2Properties {
+pub struct SearchNoticeOutputDetails {
     /// Additional properties matching the spec's
     /// `additionalProperties` value schema.
     #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
+    pub additional_properties: std::collections::BTreeMap<String, serde_json::Value>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchMonitorOutputSchemaVariant {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub r#type: SearchMonitorOutputSchemaVariantType,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaVariantType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-}
-impl SearchMonitorOutputSchemaVariantType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaVariantType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaVariantType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorOutputSchemaProperties {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchMonitorOutputSchemaOutputVariant2 {
-    #[serde(rename = "additionalProperties", skip_serializing_if = "Option::is_none")]
-    pub additional_properties_2: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub properties: Option<SearchMonitorOutputSchemaOutputVariant2Properties>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required: Option<Vec<String>>,
-    pub r#type: SearchMonitorOutputSchemaOutputVariant2Type,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaOutputVariant2Type {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchMonitorOutputSchemaOutputVariant2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaOutputVariant2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaOutputVariant2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorOutputSchemaOutputVariant2Properties {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchMonitorOutputSchemaOutputVariant {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub r#type: SearchMonitorOutputSchemaOutputVariantType,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaOutputVariantType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-}
-impl SearchMonitorOutputSchemaOutputVariantType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaOutputVariantType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaOutputVariantType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorOutputSchemaOutputProperties {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure.
+///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure. Set `maxAgeHours: 0` to apply `includeHtmlTags`, `verbosity`, and section filters to freshly fetched content.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContentsTextVariant2 {
     #[serde(
@@ -2874,7 +3327,7 @@ pub struct SearchMonitorContentsTextVariant2 {
     )]
     pub verbosity: Option<Option<SearchMonitorContentsTextVariant2Verbosity>>,
 }
-///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure.
+///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure. Set `maxAgeHours: 0` to apply `includeHtmlTags`, `verbosity`, and section filters to freshly fetched content.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContentsOutputTextVariant2 {
     #[serde(
@@ -3007,7 +3460,7 @@ pub struct SearchMonitorContentsHighlightsVariant2 {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PreviewWebsetResponse {
     ///Detected enrichments from the query.
-    pub enrichments: Vec<PreviewWebsetResponseObject>,
+    pub enrichments: Vec<PreviewWebsetResponseEnrichmentsItem>,
     ///Preview items matching the search criteria.
     pub items: Vec<WebsetItemPreview>,
     pub search: PreviewWebsetResponseSearch,
@@ -3015,12 +3468,226 @@ pub struct PreviewWebsetResponse {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PreviewWebsetResponseSearch {
     ///Detected criteria from the query.
-    pub criteria: Vec<PreviewWebsetResponseSearchObject>,
+    pub criteria: Vec<PreviewWebsetResponseSearchCriteriaItem>,
     ///Detected entity from the query.
     pub entity: PreviewWebsetResponseSearchEntity,
 }
+///Detected entity from the query.
+#[derive(Debug, Clone)]
+pub enum PreviewWebsetResponseSearchEntity {
+    CompanyEntity(CompanyEntity),
+    PersonEntity(PersonEntity),
+    ArticleEntity(ArticleEntity),
+    ResearchPaperEntity(ResearchPaperEntity),
+    CustomEntity(CustomEntity),
+}
+impl Serialize for PreviewWebsetResponseSearchEntity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::CompanyEntity(value) => serde::Serialize::serialize(value, serializer),
+            Self::PersonEntity(value) => serde::Serialize::serialize(value, serializer),
+            Self::ArticleEntity(value) => serde::Serialize::serialize(value, serializer),
+            Self::ResearchPaperEntity(value) => {
+                serde::Serialize::serialize(value, serializer)
+            }
+            Self::CustomEntity(value) => serde::Serialize::serialize(value, serializer),
+        }
+    }
+}
+impl<'de> Deserialize<'de> for PreviewWebsetResponseSearchEntity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
+        let mut matched = None;
+        if input
+            .as_object()
+            .is_some_and(|object| {
+                true
+                    && object
+                        .get("type")
+                        .is_some_and(|value| {
+                            value.is_null()
+                                || matches!(value.to_string().as_str(), "\"company\"")
+                        })
+            })
+        {
+            if let Ok(candidate) = serde_json::from_value::<
+                CompanyEntity,
+            >(input.clone()) {
+                let preserves_complete_input = serde_json::to_value(&candidate)
+                    .map(|encoded| encoded == input)
+                    .unwrap_or(false);
+                if preserves_complete_input {
+                    if matched.is_some() {
+                        return Err(
+                            serde::de::Error::custom(
+                                concat!(
+                                    "ambiguous oneOf value for ",
+                                    stringify!(PreviewWebsetResponseSearchEntity),
+                                    ": more than one branch preserved the complete input",
+                                ),
+                            ),
+                        );
+                    }
+                    matched = Some(Self::CompanyEntity(candidate));
+                }
+            }
+        }
+        if input
+            .as_object()
+            .is_some_and(|object| {
+                true
+                    && object
+                        .get("type")
+                        .is_some_and(|value| {
+                            value.is_null()
+                                || matches!(value.to_string().as_str(), "\"person\"")
+                        })
+            })
+        {
+            if let Ok(candidate) = serde_json::from_value::<
+                PersonEntity,
+            >(input.clone()) {
+                let preserves_complete_input = serde_json::to_value(&candidate)
+                    .map(|encoded| encoded == input)
+                    .unwrap_or(false);
+                if preserves_complete_input {
+                    if matched.is_some() {
+                        return Err(
+                            serde::de::Error::custom(
+                                concat!(
+                                    "ambiguous oneOf value for ",
+                                    stringify!(PreviewWebsetResponseSearchEntity),
+                                    ": more than one branch preserved the complete input",
+                                ),
+                            ),
+                        );
+                    }
+                    matched = Some(Self::PersonEntity(candidate));
+                }
+            }
+        }
+        if input
+            .as_object()
+            .is_some_and(|object| {
+                true
+                    && object
+                        .get("type")
+                        .is_some_and(|value| {
+                            value.is_null()
+                                || matches!(value.to_string().as_str(), "\"article\"")
+                        })
+            })
+        {
+            if let Ok(candidate) = serde_json::from_value::<
+                ArticleEntity,
+            >(input.clone()) {
+                let preserves_complete_input = serde_json::to_value(&candidate)
+                    .map(|encoded| encoded == input)
+                    .unwrap_or(false);
+                if preserves_complete_input {
+                    if matched.is_some() {
+                        return Err(
+                            serde::de::Error::custom(
+                                concat!(
+                                    "ambiguous oneOf value for ",
+                                    stringify!(PreviewWebsetResponseSearchEntity),
+                                    ": more than one branch preserved the complete input",
+                                ),
+                            ),
+                        );
+                    }
+                    matched = Some(Self::ArticleEntity(candidate));
+                }
+            }
+        }
+        if input
+            .as_object()
+            .is_some_and(|object| {
+                true
+                    && object
+                        .get("type")
+                        .is_some_and(|value| {
+                            value.is_null()
+                                || matches!(
+                                    value.to_string().as_str(), "\"research_paper\""
+                                )
+                        })
+            })
+        {
+            if let Ok(candidate) = serde_json::from_value::<
+                ResearchPaperEntity,
+            >(input.clone()) {
+                let preserves_complete_input = serde_json::to_value(&candidate)
+                    .map(|encoded| encoded == input)
+                    .unwrap_or(false);
+                if preserves_complete_input {
+                    if matched.is_some() {
+                        return Err(
+                            serde::de::Error::custom(
+                                concat!(
+                                    "ambiguous oneOf value for ",
+                                    stringify!(PreviewWebsetResponseSearchEntity),
+                                    ": more than one branch preserved the complete input",
+                                ),
+                            ),
+                        );
+                    }
+                    matched = Some(Self::ResearchPaperEntity(candidate));
+                }
+            }
+        }
+        if input
+            .as_object()
+            .is_some_and(|object| {
+                true
+                    && object
+                        .get("type")
+                        .is_some_and(|value| {
+                            value.is_null()
+                                || matches!(value.to_string().as_str(), "\"custom\"")
+                        })
+            })
+        {
+            if let Ok(candidate) = serde_json::from_value::<
+                CustomEntity,
+            >(input.clone()) {
+                let preserves_complete_input = serde_json::to_value(&candidate)
+                    .map(|encoded| encoded == input)
+                    .unwrap_or(false);
+                if preserves_complete_input {
+                    if matched.is_some() {
+                        return Err(
+                            serde::de::Error::custom(
+                                concat!(
+                                    "ambiguous oneOf value for ",
+                                    stringify!(PreviewWebsetResponseSearchEntity),
+                                    ": more than one branch preserved the complete input",
+                                ),
+                            ),
+                        );
+                    }
+                    matched = Some(Self::CustomEntity(candidate));
+                }
+            }
+        }
+        matched
+            .ok_or_else(|| serde::de::Error::custom(
+                concat!(
+                    "no oneOf branch for ",
+                    stringify!(PreviewWebsetResponseSearchEntity),
+                    " preserved the complete input",
+                ),
+            ))
+    }
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PreviewWebsetResponseSearchObject {
+pub struct PreviewWebsetResponseSearchCriteriaItem {
     pub description: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -3254,238 +3921,24 @@ impl<'de> Deserialize<'de> for WebsetItemPreviewProperties {
             ))
     }
 }
-///Detected entity from the query.
-#[derive(Debug, Clone)]
-pub enum PreviewWebsetResponseSearchEntity {
-    CompanyEntity(CompanyEntity),
-    PersonEntity(PersonEntity),
-    ArticleEntity(ArticleEntity),
-    ResearchPaperEntity(ResearchPaperEntity),
-    CustomEntity(CustomEntity),
-}
-impl Serialize for PreviewWebsetResponseSearchEntity {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::CompanyEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::PersonEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::ArticleEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::ResearchPaperEntity(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::CustomEntity(value) => serde::Serialize::serialize(value, serializer),
-        }
-    }
-}
-impl<'de> Deserialize<'de> for PreviewWebsetResponseSearchEntity {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"company\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                CompanyEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(PreviewWebsetResponseSearchEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::CompanyEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"person\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                PersonEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(PreviewWebsetResponseSearchEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::PersonEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"article\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArticleEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(PreviewWebsetResponseSearchEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArticleEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(
-                                    value.to_string().as_str(), "\"research_paper\""
-                                )
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ResearchPaperEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(PreviewWebsetResponseSearchEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ResearchPaperEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"custom\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                CustomEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(PreviewWebsetResponseSearchEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::CustomEntity(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ",
-                    stringify!(PreviewWebsetResponseSearchEntity),
-                    " preserved the complete input",
-                ),
-            ))
-    }
-}
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PreviewWebsetResponseObject {
+pub struct PreviewWebsetResponseEnrichmentsItem {
     ///Description of the enrichment.
     pub description: String,
     ///Format of the enrichment.
-    pub format: PreviewWebsetResponseObjectFormat,
+    pub format: PreviewWebsetResponseEnrichmentsItemFormat,
     ///When format is options, the options detected from the query.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<Vec<PreviewWebsetResponseObjectObject>>,
+    pub options: Option<Vec<PreviewWebsetResponseEnrichmentsItemOptionsItem>>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PreviewWebsetResponseObjectObject {
+pub struct PreviewWebsetResponseEnrichmentsItemOptionsItem {
     ///Label of the option.
     pub label: String,
 }
 ///Format of the enrichment.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum PreviewWebsetResponseObjectFormat {
+pub enum PreviewWebsetResponseEnrichmentsItemFormat {
     #[default]
     #[serde(rename = "text")]
     Text,
@@ -3502,7 +3955,7 @@ pub enum PreviewWebsetResponseObjectFormat {
     #[serde(rename = "url")]
     Url,
 }
-impl PreviewWebsetResponseObjectFormat {
+impl PreviewWebsetResponseEnrichmentsItemFormat {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Text => "text",
@@ -3515,12 +3968,12 @@ impl PreviewWebsetResponseObjectFormat {
         }
     }
 }
-impl ::std::fmt::Display for PreviewWebsetResponseObjectFormat {
+impl ::std::fmt::Display for PreviewWebsetResponseEnrichmentsItemFormat {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for PreviewWebsetResponseObjectFormat {
+impl AsRef<str> for PreviewWebsetResponseEnrichmentsItemFormat {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -3544,90 +3997,114 @@ Be specific and descriptive about your requirements, characteristics, and any co
     pub query: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehavior {
-    /**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
-    pub config: MonitorBehaviorConfig,
-    #[serde(default)]
-    pub r#type: MonitorBehaviorType,
+pub struct OutputSchemaTextOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub r#type: OutputSchemaTextOutputType,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum MonitorBehaviorType {
+pub enum OutputSchemaTextOutputType {
     #[default]
-    #[serde(rename = "search")]
-    Search,
+    #[serde(rename = "text")]
+    Text,
 }
-impl MonitorBehaviorType {
+impl OutputSchemaTextOutputType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Search => "search",
+            Self::Text => "text",
         }
     }
 }
-impl ::std::fmt::Display for MonitorBehaviorType {
+impl ::std::fmt::Display for OutputSchemaTextOutputType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for MonitorBehaviorType {
+impl AsRef<str> for OutputSchemaTextOutputType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
-/**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehaviorConfig {
-    ///The behaviour of the Search when it is added to a Webset.
+pub struct OutputSchemaText {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub behavior: Option<MonitorBehaviorConfigBehavior>,
-    ///The maximum number of results to find
-    ///Constraint: exclusiveMinimum=0
-    pub count: f64,
-    ///The criteria to search for. By default, the criteria from the last search is used.
-    ///Constraint: maxItems=5
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub criteria: Option<Vec<MonitorBehaviorConfigObject>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<Entity>,
-    ///The query to search for. By default, the query from the last search is used.
-    ///Constraint: minLength=2, maxLength=10000
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub query: Option<String>,
+    pub description: Option<String>,
+    pub r#type: OutputSchemaTextType,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehaviorConfigObject {
-    ///Constraint: minLength=2, maxLength=1000
-    pub description: String,
-}
-///The behaviour of the Search when it is added to a Webset.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum MonitorBehaviorConfigBehavior {
-    #[serde(rename = "override")]
-    Override,
+pub enum OutputSchemaTextType {
     #[default]
-    #[serde(rename = "append")]
-    Append,
+    #[serde(rename = "text")]
+    Text,
 }
-impl MonitorBehaviorConfigBehavior {
+impl OutputSchemaTextType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Override => "override",
-            Self::Append => "append",
+            Self::Text => "text",
         }
     }
 }
-impl ::std::fmt::Display for MonitorBehaviorConfigBehavior {
+impl ::std::fmt::Display for OutputSchemaTextType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for MonitorBehaviorConfigBehavior {
+impl AsRef<str> for OutputSchemaTextType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OutputSchemaObject {
+    #[serde(rename = "additionalProperties", skip_serializing_if = "Option::is_none")]
+    pub additional_properties_2: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<OutputSchemaObjectProperties>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<Vec<String>>,
+    pub r#type: OutputSchemaObjectType,
+    /// Additional properties matching the spec's
+    /// `additionalProperties` value schema.
+    #[serde(flatten)]
+    pub additional_properties: std::collections::BTreeMap<
+        String,
+        Option<Box<JsonValue>>,
+    >,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum OutputSchemaObjectType {
+    #[default]
+    #[serde(rename = "object")]
+    Object,
+}
+impl OutputSchemaObjectType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Object => "object",
+        }
+    }
+}
+impl ::std::fmt::Display for OutputSchemaObjectType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for OutputSchemaObjectType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct OutputSchemaObjectProperties {
+    /// Additional properties matching the spec's
+    /// `additionalProperties` value schema.
+    #[serde(flatten)]
+    pub additional_properties: std::collections::BTreeMap<
+        String,
+        Option<Box<JsonValue>>,
+    >,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ListWebsetsResponse {
@@ -3675,6 +4152,7 @@ pub struct Webhook {
     ///The metadata of the webhook
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<WebhookMetadata>,
+    ///The type of object
     #[serde(default)]
     pub object: WebhookObject,
     ///The secret to verify the webhook signature. Only returned on Webhook creation.
@@ -3714,6 +4192,7 @@ impl AsRef<str> for WebhookStatus {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum WebhookObject {
     #[default]
@@ -3766,11 +4245,11 @@ pub struct WebhookAttempt {
     ///The unique identifier for the event
     #[serde(rename = "eventId")]
     pub event_id: String,
-    ///The type of event
     #[serde(rename = "eventType")]
-    pub event_type: WebhookAttemptEventType,
+    pub event_type: EventType,
     ///The unique identifier for the webhook attempt
     pub id: String,
+    ///The type of object
     #[serde(default)]
     pub object: WebhookAttemptObject,
     ///The body of the response
@@ -3798,6 +4277,7 @@ pub struct WebhookAttemptResponseHeaders {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum WebhookAttemptObject {
     #[default]
@@ -3817,84 +4297,6 @@ impl ::std::fmt::Display for WebhookAttemptObject {
     }
 }
 impl AsRef<str> for WebhookAttemptObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///The type of event
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebhookAttemptEventType {
-    #[default]
-    #[serde(rename = "webset.created")]
-    WebsetCreated,
-    #[serde(rename = "webset.deleted")]
-    WebsetDeleted,
-    #[serde(rename = "webset.paused")]
-    WebsetPaused,
-    #[serde(rename = "webset.idle")]
-    WebsetIdle,
-    #[serde(rename = "webset.search.created")]
-    WebsetSearchCreated,
-    #[serde(rename = "webset.search.canceled")]
-    WebsetSearchCanceled,
-    #[serde(rename = "webset.search.completed")]
-    WebsetSearchCompleted,
-    #[serde(rename = "webset.search.updated")]
-    WebsetSearchUpdated,
-    #[serde(rename = "import.created")]
-    ImportCreated,
-    #[serde(rename = "import.completed")]
-    ImportCompleted,
-    #[serde(rename = "webset.item.created")]
-    WebsetItemCreated,
-    #[serde(rename = "webset.item.enriched")]
-    WebsetItemEnriched,
-    #[serde(rename = "monitor.created")]
-    MonitorCreated,
-    #[serde(rename = "monitor.updated")]
-    MonitorUpdated,
-    #[serde(rename = "monitor.deleted")]
-    MonitorDeleted,
-    #[serde(rename = "monitor.run.created")]
-    MonitorRunCreated,
-    #[serde(rename = "monitor.run.completed")]
-    MonitorRunCompleted,
-    #[serde(rename = "webset.export.created")]
-    WebsetExportCreated,
-    #[serde(rename = "webset.export.completed")]
-    WebsetExportCompleted,
-}
-impl WebhookAttemptEventType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WebsetCreated => "webset.created",
-            Self::WebsetDeleted => "webset.deleted",
-            Self::WebsetPaused => "webset.paused",
-            Self::WebsetIdle => "webset.idle",
-            Self::WebsetSearchCreated => "webset.search.created",
-            Self::WebsetSearchCanceled => "webset.search.canceled",
-            Self::WebsetSearchCompleted => "webset.search.completed",
-            Self::WebsetSearchUpdated => "webset.search.updated",
-            Self::ImportCreated => "import.created",
-            Self::ImportCompleted => "import.completed",
-            Self::WebsetItemCreated => "webset.item.created",
-            Self::WebsetItemEnriched => "webset.item.enriched",
-            Self::MonitorCreated => "monitor.created",
-            Self::MonitorUpdated => "monitor.updated",
-            Self::MonitorDeleted => "monitor.deleted",
-            Self::MonitorRunCreated => "monitor.run.created",
-            Self::MonitorRunCompleted => "monitor.run.completed",
-            Self::WebsetExportCreated => "webset.export.created",
-            Self::WebsetExportCompleted => "webset.export.completed",
-        }
-    }
-}
-impl ::std::fmt::Display for WebhookAttemptEventType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for WebhookAttemptEventType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -4260,7 +4662,7 @@ pub struct GetWebsetResponse {
     pub enrichments: Vec<WebsetEnrichment>,
     ///The Excludes sources (existing imports or websets) that apply to all operations within this Webset. Any results found within these sources will be omitted across all search and import operations.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub excludes: Option<Vec<WebsetObject>>,
+    pub excludes: Option<Vec<WebsetExcludesItem>>,
     ///The external identifier for the webset
     #[serde(rename = "externalId")]
     pub external_id: Option<String>,
@@ -4276,8 +4678,9 @@ pub struct GetWebsetResponse {
     pub metadata: Option<WebsetMetadata>,
     ///The Monitors for the Webset.
     pub monitors: Vec<Monitor>,
+    ///The type of object
     #[serde(default)]
-    pub object: WebsetObjectWebset,
+    pub object: WebsetObject,
     ///The searches that have been performed on the webset.
     pub searches: Vec<WebsetSearch>,
     ///The status of the webset
@@ -4429,7 +4832,7 @@ pub struct ErrorResponse {
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct FindSimilarResponse {
-    ///Deprecated. Combined context string from search results. Use highlights or text instead.
+    ///Deprecated. Use `results[].highlights` or `results[].text` instead. Combined context string from search results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<String>,
     #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
@@ -4440,7 +4843,7 @@ pub struct FindSimilarResponse {
     ///A list of search results containing title, URL, published date, and author.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub results: Option<Vec<FindSimilarResult>>,
-    ///Server-side processing time in milliseconds, measured at the gateway. Covers retrieval but may exclude later phases such as structured output synthesis, so it can be lower than end-to-end request latency.
+    ///Server-side processing time in milliseconds. May exclude output synthesis time, so it can be lower than end-to-end latency.
     #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
     pub search_time: Option<f64>,
 }
@@ -4453,7 +4856,7 @@ pub struct FindSimilarResult {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub author: Option<Option<String>>,
-    ///Structured entity data for company, person, or publication search results. Returned for supported entity-backed categories.
+    ///Structured entity data for company, person, publication, or product search results. Returned for supported entity-backed categories and for product listing pages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entities: Option<Vec<FindSimilarResultEntitiesItemUnion>>,
     ///Results from extras. Each field is returned only when requested via contents.extras.
@@ -4564,637 +4967,364 @@ pub struct FindSimilarResultExtrasCodeBlocksItem {
 }
 #[derive(Debug, Clone)]
 pub enum FindSimilarResultEntitiesItemUnion {
-    ArrayItemVariant(ArrayItemVariant),
-    ArrayItemVariant2(ArrayItemVariant2),
-    ArrayItemVariant3(ArrayItemVariant3),
+    SearchCompanyEntityOutput(SearchCompanyEntityOutput),
+    SearchPersonEntityOutput(SearchPersonEntityOutput),
+    SearchPublicationEntityOutput(SearchPublicationEntityOutput),
 }
-impl Serialize for FindSimilarResultEntitiesItemUnion {
+impl serde::Serialize for FindSimilarResultEntitiesItemUnion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Self::ArrayItemVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchCompanyEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchCompanyEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "company") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchCompanyEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("company".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::ArrayItemVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchPersonEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchPersonEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "person") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchPersonEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("person".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::ArrayItemVariant3(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchPublicationEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchPublicationEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "publication") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchPublicationEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("publication".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
         }
     }
 }
-impl<'de> Deserialize<'de> for FindSimilarResultEntitiesItemUnion {
+impl<'de> serde::Deserialize<'de> for FindSimilarResultEntitiesItemUnion {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"company\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "company" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchCompanyEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "company", first_name,
+                                            stringify!(SearchPersonEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPersonEntityOutput(payload),
+                                stringify!(SearchPersonEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "company", first_name,
+                                            stringify!(SearchPublicationEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPublicationEntityOutput(payload),
+                                stringify!(SearchPublicationEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "person" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchPersonEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "person", first_name,
+                                            stringify!(SearchCompanyEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchCompanyEntityOutput(payload),
+                                stringify!(SearchCompanyEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "person", first_name,
+                                            stringify!(SearchPublicationEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPublicationEntityOutput(payload),
+                                stringify!(SearchPublicationEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "publication" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchPublicationEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "publication", first_name,
+                                            stringify!(SearchCompanyEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchCompanyEntityOutput(payload),
+                                stringify!(SearchCompanyEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "publication", first_name,
+                                            stringify!(SearchPersonEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPersonEntityOutput(payload),
+                                stringify!(SearchPersonEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
                             serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(FindSimilarResultEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
                                 ),
                             ),
-                        );
+                        )
                     }
-                    matched = Some(Self::ArrayItemVariant(candidate));
                 }
             }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"person\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(FindSimilarResultEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArrayItemVariant2(candidate));
-                }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
             }
         }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"publication\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant3,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(FindSimilarResultEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArrayItemVariant3(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ",
-                    stringify!(FindSimilarResultEntitiesItemUnion),
-                    " preserved the complete input",
-                ),
-            ))
     }
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultTypePublication {
-    #[default]
-    #[serde(rename = "publication")]
-    Publication,
-}
-impl FindSimilarResultTypePublication {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Publication => "publication",
-        }
-    }
-}
-impl ::std::fmt::Display for FindSimilarResultTypePublication {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultTypePublication {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultTypePerson {
-    #[default]
-    #[serde(rename = "person")]
-    Person,
-}
-impl FindSimilarResultTypePerson {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Person => "person",
-        }
-    }
-}
-impl ::std::fmt::Display for FindSimilarResultTypePerson {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultTypePerson {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultType {
-    #[default]
-    #[serde(rename = "company")]
-    Company,
-}
-impl FindSimilarResultType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Company => "company",
-        }
-    }
-}
-impl ::std::fmt::Display for FindSimilarResultType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Publication-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineD5C1AEC6500603D6 {
-    ///Publication abstract text.
-    pub r#abstract: Option<String>,
-    ///Ordered list of authors.
-    pub authors: Vec<FindSimilarResultPropertiesInlineD5C1AEC6500603D6AuthorsItem>,
-    ///Number of works citing this publication (incoming references).
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Publication date.
-    pub date: Option<String>,
-    ///Bare DOI identifier (e.g. 10.1234/abcd).
-    pub doi: Option<String>,
-    ///Publication language.
-    pub language: Option<String>,
-    ///Number of works this publication cites (outgoing references).
-    #[serde(rename = "referenceCount")]
-    pub reference_count: Option<i64>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<FindSimilarResultPropertiesInlineD5C1AEC6500603D6Type>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultPropertiesInlineD5C1AEC6500603D6Type {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl FindSimilarResultPropertiesInlineD5C1AEC6500603D6Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display for FindSimilarResultPropertiesInlineD5C1AEC6500603D6Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultPropertiesInlineD5C1AEC6500603D6Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineD5C1AEC6500603D6AuthorsItem {
-    ///Resolved person entity identifier, when available.
-    pub id: Option<String>,
-    ///Author display name.
-    pub name: Option<String>,
-}
-///Person-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInline {
-    ///Known education history for this person.
-    #[serde(rename = "educationHistory")]
-    pub education_history: Vec<FindSimilarResultPropertiesInlineEducationHistoryItem>,
-    ///Person first name.
-    #[serde(rename = "firstName")]
-    pub first_name: Option<String>,
-    ///Person last name.
-    #[serde(rename = "lastName")]
-    pub last_name: Option<String>,
-    ///Person location.
-    pub location: Option<String>,
-    ///Person name.
-    pub name: Option<String>,
-    ///Person research information.
-    pub research: Option<FindSimilarResultPropertiesInlineResearch>,
-    ///Known professional roles for this person.
-    #[serde(rename = "workHistory")]
-    pub work_history: Vec<FindSimilarResultPropertiesInlineWorkHistoryItem>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineWorkHistoryItem {
-    ///Company for this role.
-    pub company: Option<FindSimilarResultPropertiesInlineWorkHistoryItemCompany>,
-    ///Role date range.
-    pub dates: Option<FindSimilarResultPropertiesInlineWorkHistoryItemDates>,
-    ///Role location.
-    pub location: Option<String>,
-    ///Role title.
-    pub title: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineWorkHistoryItemDates {
-    ///Start date for the date range.
-    pub from: Option<String>,
-    ///End date for the date range.
-    pub to: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineWorkHistoryItemCompany {
-    ///Referenced company identifier.
-    pub id: Option<String>,
-    ///Referenced company name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineResearch {
-    ///Ranked research areas, most active first.
-    pub areas: Vec<String>,
-    ///Lifetime citation count.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Year of the first publication.
-    #[serde(rename = "firstPublicationYear")]
-    pub first_publication_year: Option<i64>,
-    ///Research h-index.
-    #[serde(rename = "hIndex")]
-    pub h_index: Option<i64>,
-    ///Year of the latest publication.
-    #[serde(rename = "latestPublicationYear")]
-    pub latest_publication_year: Option<i64>,
-    ///Most-cited notable works.
-    #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<FindSimilarResultPropertiesInlineResearchNotableWorksItem>,
-    ///Lifetime number of works.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineResearchNotableWorksItem {
-    ///Number of works citing this publication.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Digital Object Identifier.
-    pub doi: Option<String>,
-    ///Resolved publication entity identifier, when available.
-    pub id: Option<String>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<FindSimilarResultPropertiesInlineResearchNotableWorksItemType>,
-    ///Publication venue.
-    pub venue: Option<String>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultPropertiesInlineResearchNotableWorksItemType {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl FindSimilarResultPropertiesInlineResearchNotableWorksItemType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display
-for FindSimilarResultPropertiesInlineResearchNotableWorksItemType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultPropertiesInlineResearchNotableWorksItemType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineEducationHistoryItem {
-    ///Education date range.
-    pub dates: Option<FindSimilarResultPropertiesInlineEducationHistoryItemDates>,
-    ///Degree or credential.
-    pub degree: Option<String>,
-    ///Education institution.
-    pub institution: Option<
-        FindSimilarResultPropertiesInlineEducationHistoryItemInstitution,
-    >,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineEducationHistoryItemInstitution {
-    ///Referenced institution identifier.
-    pub id: Option<String>,
-    ///Referenced institution name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesInlineEducationHistoryItemDates {
-    ///Start date for the date range.
-    pub from: Option<String>,
-    ///End date for the date range.
-    pub to: Option<String>,
-}
-///Company-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultProperties {
-    ///Short company description.
-    pub description: Option<String>,
-    ///Company financial information.
-    pub financials: Option<FindSimilarResultPropertiesFinancials>,
-    ///Year the company was founded.
-    #[serde(rename = "foundedYear")]
-    pub founded_year: Option<i64>,
-    ///Company headquarters information.
-    pub headquarters: Option<FindSimilarResultPropertiesHeadquarters>,
-    ///Company name.
-    pub name: Option<String>,
-    ///Company research information.
-    pub research: Option<FindSimilarResultPropertiesResearch>,
-    ///Company web traffic information.
-    #[serde(rename = "webTraffic")]
-    pub web_traffic: Option<FindSimilarResultPropertiesWebTraffic>,
-    ///Company workforce information.
-    pub workforce: Option<FindSimilarResultPropertiesWorkforce>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesWorkforce {
-    ///Total estimated employee count.
-    pub total: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesWebTraffic {
-    ///Estimated average visit duration, in seconds.
-    #[serde(rename = "avgDurationSeconds")]
-    pub avg_duration_seconds: Option<f64>,
-    ///Estimated website traffic rank within the company's primary country.
-    #[serde(rename = "countryRank")]
-    pub country_rank: Option<i64>,
-    ///Historical monthly website visits.
-    pub history: Vec<FindSimilarResultPropertiesWebTrafficHistoryItem>,
-    ///Estimated monthly website visits.
-    #[serde(rename = "visitsMonthly")]
-    pub visits_monthly: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesWebTrafficHistoryItem {
-    ///Start month for this value, formatted as YYYY-MM.
-    #[serde(rename = "dateFrom")]
-    pub date_from: String,
-    ///End month for this value, formatted as YYYY-MM.
-    #[serde(rename = "dateTo")]
-    pub date_to: String,
-    ///Estimated monthly visits for this period.
-    pub value: f64,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesResearch {
-    ///Ranked research areas, most active first.
-    pub areas: Vec<String>,
-    ///Lifetime citation count.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Most-cited notable works.
-    #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<FindSimilarResultPropertiesResearchNotableWorksItem>,
-    ///Researchers ordered by works produced at the organization.
-    #[serde(rename = "topResearchers")]
-    pub top_researchers: Vec<FindSimilarResultPropertiesResearchTopResearchersItem>,
-    ///Number of works with an affiliated author.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesResearchTopResearchersItem {
-    ///Number of citations for works produced at the organization.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Referenced researcher.
-    pub person: Option<FindSimilarResultPropertiesResearchTopResearchersItemPerson>,
-    ///Number of works produced at the organization.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesResearchTopResearchersItemPerson {
-    ///Referenced person entity identifier.
-    pub id: Option<String>,
-    ///Referenced person name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesResearchNotableWorksItem {
-    ///Number of works citing this publication.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Digital Object Identifier.
-    pub doi: Option<String>,
-    ///Resolved publication entity identifier, when available.
-    pub id: Option<String>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<FindSimilarResultPropertiesResearchNotableWorksItemType>,
-    ///Publication venue.
-    pub venue: Option<String>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum FindSimilarResultPropertiesResearchNotableWorksItemType {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl FindSimilarResultPropertiesResearchNotableWorksItemType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display for FindSimilarResultPropertiesResearchNotableWorksItemType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for FindSimilarResultPropertiesResearchNotableWorksItemType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesHeadquarters {
-    ///Company headquarters street address.
-    pub address: Option<String>,
-    ///Company headquarters city.
-    pub city: Option<String>,
-    ///Company headquarters country.
-    pub country: Option<String>,
-    ///Company headquarters postal code.
-    #[serde(rename = "postalCode")]
-    pub postal_code: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesFinancials {
-    ///Most recent funding round, when available.
-    #[serde(rename = "fundingLatestRound")]
-    pub funding_latest_round: Option<
-        FindSimilarResultPropertiesFinancialsFundingLatestRound,
-    >,
-    ///Total funding raised in USD.
-    #[serde(rename = "fundingTotal")]
-    pub funding_total: Option<f64>,
-    ///Estimated annual revenue in USD.
-    #[serde(rename = "revenueAnnual")]
-    pub revenue_annual: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct FindSimilarResultPropertiesFinancialsFundingLatestRound {
-    ///Funding round amount in USD.
-    pub amount: Option<f64>,
-    ///Funding round date.
-    pub date: Option<String>,
-    ///Funding round name.
-    pub name: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FindSimilarRequest {
@@ -5238,6 +5368,14 @@ pub struct FindSimilarRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub exclude_source_domain: Option<Option<bool>>,
+    ///Deprecated. List of strings that must not be present in the webpage text of results. Matching is approximate (word-level rather than exact phrase). Up to 50 strings, each up to 4096 characters. Ignored for the `company` and `people` categories.
+    #[serde(
+        rename = "excludeText",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub exclude_text: Option<Option<Vec<String>>>,
     #[serde(
         rename = "includeDomains",
         skip_serializing_if = "Option::is_none",
@@ -5245,6 +5383,14 @@ pub struct FindSimilarRequest {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub include_domains: Option<Option<Vec<String>>>,
+    ///Deprecated. List of strings that must be present in the webpage text of results. Matching is approximate (word-level rather than exact phrase), so a multi-word entry can match pages where its words appear separately. Up to 50 strings, each up to 4096 characters. Ignored for the `company` and `people` categories.
+    #[serde(
+        rename = "includeText",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub include_text: Option<Option<Vec<String>>>,
     #[serde(
         rename = "numResults",
         skip_serializing_if = "Option::is_none",
@@ -5281,7 +5427,9 @@ impl FindSimilarRequest {
             end_published_date: None,
             exclude_domains: None,
             exclude_source_domain: None,
+            exclude_text: None,
             include_domains: None,
+            include_text: None,
             num_results: None,
             start_crawl_date: None,
             start_published_date: None,
@@ -5453,6 +5601,28 @@ impl FindSimilarRequestBuilder {
         self
     }
     #[doc = concat!(
+        "Set the optional nullable `", "excludeText", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn exclude_text(mut self, exclude_text: Vec<String>) -> Self {
+        self.value.exclude_text = Some(Some(exclude_text));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "excludeText", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn exclude_text_null(mut self) -> Self {
+        self.value.exclude_text = Some(None);
+        self
+    }
+    #[doc = concat!("Omit the optional nullable `", "excludeText", "` request field.")]
+    #[must_use]
+    pub fn exclude_text_absent(mut self) -> Self {
+        self.value.exclude_text = None;
+        self
+    }
+    #[doc = concat!(
         "Set the optional nullable `", "includeDomains", "` request field to a value."
     )]
     #[must_use]
@@ -5474,6 +5644,28 @@ impl FindSimilarRequestBuilder {
     #[must_use]
     pub fn include_domains_absent(mut self) -> Self {
         self.value.include_domains = None;
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "includeText", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn include_text(mut self, include_text: Vec<String>) -> Self {
+        self.value.include_text = Some(Some(include_text));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "includeText", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn include_text_null(mut self) -> Self {
+        self.value.include_text = Some(None);
+        self
+    }
+    #[doc = concat!("Omit the optional nullable `", "includeText", "` request field.")]
+    #[must_use]
+    pub fn include_text_absent(mut self) -> Self {
+        self.value.include_text = None;
         self
     }
     #[doc = concat!(
@@ -5559,7 +5751,7 @@ impl FindSimilarRequestBuilder {
         self.value
     }
 }
-///A data category to focus on. Known categories include `company`, `publication`, `news`, `personal site`, `financial report`, and `people`. Other strings are accepted and used as category hints for search. The `people` and `company` categories have improved quality for finding people profiles and company pages. The `publication` category surfaces scholarly publications such as research papers, preprints, and journal articles, with structured metadata like authors, venue, and citations. Note: The `company` and `people` categories only support a limited set of filters. The following parameters are NOT supported for these categories: `startPublishedDate`, `endPublishedDate`, `excludeDomains`. Using unsupported parameters will result in a 400 error.
+///A data category to focus on. Other strings are accepted and used as category hints. `people` and `company` return higher-quality people profiles and company pages. `publication` returns scholarly publications such as research papers, preprints, and journal articles, with metadata like authors, venue, and citations. With `company` or `people`, domain, URL, published-date, and text filters are ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum FindSimilarRequestCategory {
     #[default]
@@ -5602,21 +5794,21 @@ impl AsRef<str> for FindSimilarRequestCategory {
 pub enum Event {
     WebsetCreated(CreatedAtBlock),
     WebsetDeleted(CreatedAtBlockInline),
-    WebsetIdle(CreatedAtBlockInline7254C59D133DA7D2),
-    WebsetPaused(CreatedAtBlockInlineEA88175AA3373139),
-    WebsetItemCreated(CreatedAtBlockInlineAAAE814B91952425),
-    WebsetItemEnriched(CreatedAtBlockInlineB8133AE273D274B4),
-    WebsetSearchCreated(CreatedAtBlockInlineA8098962C380F4D4),
-    WebsetSearchUpdated(CreatedAtBlockInline066A56B179480C81),
-    WebsetSearchCanceled(CreatedAtBlockInlineCCDC22E4D0FD035C),
-    WebsetSearchCompleted(CreatedAtBlockInlineCC6D9DB8D8E12227),
-    ImportCreated(CreatedAtBlockInlineB9A93589A5790046),
-    ImportCompleted(CreatedAtBlockInlineCEA58FF4477489AB),
-    MonitorCreated(CreatedAtBlockInline26B83B91DD497A33),
-    MonitorUpdated(CreatedAtBlockInline012B38CB35D2572E),
-    MonitorDeleted(CreatedAtBlockInline3B3B8D0BEE9D6F75),
-    MonitorRunCreated(CreatedAtBlockInline5B7B4280FB0F96C1),
-    MonitorRunCompleted(CreatedAtBlockInlineBE3AB6091CDAC8B2),
+    WebsetIdle(CreatedAtBlockInline07EFDC0E0A2564D4),
+    WebsetPaused(CreatedAtBlockInlineC3EAE2BE46F66B95),
+    WebsetItemCreated(CreatedAtBlockInline32FB88A9C7D56D4F),
+    WebsetItemEnriched(CreatedAtBlockInline5A46E42A33F04A64),
+    WebsetSearchCreated(CreatedAtBlockInline6AF571D8987DCFCE),
+    WebsetSearchUpdated(CreatedAtBlockInline19EED500AD99CF23),
+    WebsetSearchCanceled(CreatedAtBlockInlineABCBD67828ABB5F8),
+    WebsetSearchCompleted(CreatedAtBlockInlineD8B57FF3DE334351),
+    ImportCreated(CreatedAtBlockInline2301EBA58D1B0526),
+    ImportCompleted(CreatedAtBlockInline71EEB2C0DEB9C1EB),
+    MonitorCreated(CreatedAtBlockInline9E2D4892F7E59D27),
+    MonitorUpdated(CreatedAtBlockInlineCE9EB4FCAFBF2AFA),
+    MonitorDeleted(CreatedAtBlockInlineB5F11F376E502F93),
+    MonitorRunCreated(CreatedAtBlockInlineC06F50D571A67CE7),
+    MonitorRunCompleted(CreatedAtBlockInline3D5D06CA6103D960),
 }
 impl serde::Serialize for Event {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -6497,7 +6689,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6516,7 +6708,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6535,7 +6727,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6554,7 +6746,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6573,7 +6765,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6592,7 +6784,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6611,7 +6803,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6630,7 +6822,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6649,7 +6841,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6668,7 +6860,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6687,7 +6879,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6706,7 +6898,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6725,7 +6917,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6744,7 +6936,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6763,7 +6955,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6814,7 +7006,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6833,7 +7025,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6852,7 +7044,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6871,7 +7063,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6890,7 +7082,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6909,7 +7101,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6928,7 +7120,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6947,7 +7139,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6966,7 +7158,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -6985,7 +7177,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7004,7 +7196,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7023,7 +7215,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7042,7 +7234,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7061,7 +7253,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7080,7 +7272,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7105,7 +7297,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.idle" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetIdle(payload)),
                             Err(error) => error,
@@ -7150,7 +7342,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7168,7 +7360,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7187,7 +7379,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7206,7 +7398,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7225,7 +7417,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7244,7 +7436,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7263,7 +7455,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7282,7 +7474,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7301,7 +7493,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7320,7 +7512,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7339,7 +7531,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7358,7 +7550,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7377,7 +7569,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7396,7 +7588,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7421,7 +7613,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.paused" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetPaused(payload)),
                             Err(error) => error,
@@ -7466,7 +7658,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7484,7 +7676,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7503,7 +7695,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7522,7 +7714,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7541,7 +7733,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7560,7 +7752,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7579,7 +7771,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7598,7 +7790,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7617,7 +7809,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7636,7 +7828,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7655,7 +7847,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7674,7 +7866,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7693,7 +7885,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7712,7 +7904,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7737,7 +7929,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.item.created" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetItemCreated(payload)),
                             Err(error) => error,
@@ -7782,7 +7974,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7801,7 +7993,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7820,7 +8012,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7839,7 +8031,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7858,7 +8050,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7877,7 +8069,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7896,7 +8088,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7915,7 +8107,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7934,7 +8126,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7953,7 +8145,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7972,7 +8164,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -7991,7 +8183,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8010,7 +8202,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8029,7 +8221,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8054,7 +8246,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.item.enriched" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetItemEnriched(payload)),
                             Err(error) => error,
@@ -8099,7 +8291,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8118,7 +8310,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8137,7 +8329,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8156,7 +8348,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8175,7 +8367,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8194,7 +8386,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8213,7 +8405,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8232,7 +8424,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8251,7 +8443,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8270,7 +8462,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8289,7 +8481,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8308,7 +8500,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8327,7 +8519,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8346,7 +8538,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8371,7 +8563,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.search.created" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetSearchCreated(payload)),
                             Err(error) => error,
@@ -8416,7 +8608,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8435,7 +8627,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8454,7 +8646,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8473,7 +8665,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8492,7 +8684,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8511,7 +8703,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8530,7 +8722,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8549,7 +8741,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8568,7 +8760,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8587,7 +8779,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8606,7 +8798,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8625,7 +8817,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8644,7 +8836,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8663,7 +8855,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8688,7 +8880,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.search.updated" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetSearchUpdated(payload)),
                             Err(error) => error,
@@ -8733,7 +8925,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8752,7 +8944,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8771,7 +8963,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8790,7 +8982,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8809,7 +9001,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8828,7 +9020,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8847,7 +9039,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8866,7 +9058,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8885,7 +9077,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8904,7 +9096,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8923,7 +9115,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8942,7 +9134,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8961,7 +9153,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -8980,7 +9172,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9005,7 +9197,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.search.canceled" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::WebsetSearchCanceled(payload)),
                             Err(error) => error,
@@ -9050,7 +9242,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9069,7 +9261,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9088,7 +9280,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9107,7 +9299,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9126,7 +9318,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9145,7 +9337,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9164,7 +9356,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9183,7 +9375,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9202,7 +9394,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9221,7 +9413,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9240,7 +9432,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9259,7 +9451,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9278,7 +9470,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9297,7 +9489,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9322,7 +9514,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "webset.search.completed" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             Ok(payload) => {
                                 return Ok(Self::WebsetSearchCompleted(payload));
@@ -9369,7 +9561,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9388,7 +9580,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9407,7 +9599,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9426,7 +9618,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9445,7 +9637,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9464,7 +9656,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9483,7 +9675,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9502,7 +9694,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9521,7 +9713,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9540,7 +9732,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9559,7 +9751,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9578,7 +9770,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9597,7 +9789,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9616,7 +9808,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9641,7 +9833,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "import.created" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::ImportCreated(payload)),
                             Err(error) => error,
@@ -9686,7 +9878,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9705,7 +9897,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9724,7 +9916,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9743,7 +9935,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9762,7 +9954,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9781,7 +9973,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9800,7 +9992,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9819,7 +10011,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9838,7 +10030,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9857,7 +10049,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9876,7 +10068,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9895,7 +10087,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9914,7 +10106,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9933,7 +10125,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -9958,7 +10150,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "import.completed" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::ImportCompleted(payload)),
                             Err(error) => error,
@@ -10003,7 +10195,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10022,7 +10214,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10041,7 +10233,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10060,7 +10252,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10079,7 +10271,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10098,7 +10290,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10117,7 +10309,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10136,7 +10328,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10155,7 +10347,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10174,7 +10366,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10193,7 +10385,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10212,7 +10404,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10231,7 +10423,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10250,7 +10442,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10275,7 +10467,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "monitor.created" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::MonitorCreated(payload)),
                             Err(error) => error,
@@ -10320,7 +10512,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10339,7 +10531,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10358,7 +10550,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10377,7 +10569,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10396,7 +10588,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10415,7 +10607,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10434,7 +10626,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10453,7 +10645,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10472,7 +10664,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10491,7 +10683,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10510,7 +10702,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10529,7 +10721,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10548,7 +10740,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10567,7 +10759,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10592,7 +10784,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "monitor.updated" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::MonitorUpdated(payload)),
                             Err(error) => error,
@@ -10637,7 +10829,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10656,7 +10848,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10675,7 +10867,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10694,7 +10886,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10713,7 +10905,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10732,7 +10924,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10751,7 +10943,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10770,7 +10962,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10789,7 +10981,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10808,7 +11000,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10827,7 +11019,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10846,7 +11038,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10865,7 +11057,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10884,7 +11076,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10909,7 +11101,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "monitor.deleted" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::MonitorDeleted(payload)),
                             Err(error) => error,
@@ -10954,7 +11146,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10973,7 +11165,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -10992,7 +11184,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11011,7 +11203,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11030,7 +11222,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11049,7 +11241,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11068,7 +11260,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11087,7 +11279,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11106,7 +11298,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11125,7 +11317,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11144,7 +11336,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11163,7 +11355,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11182,7 +11374,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11201,7 +11393,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11226,7 +11418,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "monitor.run.created" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::MonitorRunCreated(payload)),
                             Err(error) => error,
@@ -11271,7 +11463,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11290,7 +11482,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11309,7 +11501,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11328,7 +11520,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11347,7 +11539,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11366,7 +11558,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11385,7 +11577,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11404,7 +11596,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11423,7 +11615,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11442,7 +11634,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11461,7 +11653,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11480,7 +11672,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11499,7 +11691,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11518,7 +11710,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11543,7 +11735,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                     }
                     "monitor.run.completed" => {
                         let primary_error = match serde_json::from_value::<
-                            CreatedAtBlockInlineBE3AB6091CDAC8B2,
+                            CreatedAtBlockInline3D5D06CA6103D960,
                         >(value.clone()) {
                             Ok(payload) => return Ok(Self::MonitorRunCompleted(payload)),
                             Err(error) => error,
@@ -11588,7 +11780,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline7254C59D133DA7D2,
+                            CreatedAtBlockInline07EFDC0E0A2564D4,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11607,7 +11799,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineEA88175AA3373139,
+                            CreatedAtBlockInlineC3EAE2BE46F66B95,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11626,7 +11818,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineAAAE814B91952425,
+                            CreatedAtBlockInline32FB88A9C7D56D4F,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11645,7 +11837,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB8133AE273D274B4,
+                            CreatedAtBlockInline5A46E42A33F04A64,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11664,7 +11856,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineA8098962C380F4D4,
+                            CreatedAtBlockInline6AF571D8987DCFCE,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11683,7 +11875,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline066A56B179480C81,
+                            CreatedAtBlockInline19EED500AD99CF23,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11702,7 +11894,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCCDC22E4D0FD035C,
+                            CreatedAtBlockInlineABCBD67828ABB5F8,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11721,7 +11913,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCC6D9DB8D8E12227,
+                            CreatedAtBlockInlineD8B57FF3DE334351,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11740,7 +11932,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineB9A93589A5790046,
+                            CreatedAtBlockInline2301EBA58D1B0526,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11759,7 +11951,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInlineCEA58FF4477489AB,
+                            CreatedAtBlockInline71EEB2C0DEB9C1EB,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11778,7 +11970,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline26B83B91DD497A33,
+                            CreatedAtBlockInline9E2D4892F7E59D27,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11797,7 +11989,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline012B38CB35D2572E,
+                            CreatedAtBlockInlineCE9EB4FCAFBF2AFA,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11816,7 +12008,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline3B3B8D0BEE9D6F75,
+                            CreatedAtBlockInlineB5F11F376E502F93,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11835,7 +12027,7 @@ impl<'de> serde::Deserialize<'de> for Event {
                             ));
                         }
                         if let Ok(payload) = serde_json::from_value::<
-                            CreatedAtBlockInline5B7B4280FB0F96C1,
+                            CreatedAtBlockInlineC06F50D571A67CE7,
                         >(value.clone()) {
                             if let Some((_, first_name)) = &structural_match {
                                 return Err(
@@ -11942,430 +12134,712 @@ impl AsRef<str> for DeleteAgentRunResponseObject {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineEA88175AA3373139 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Webset,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInlineEA88175AA3373139Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInlineEA88175AA3373139Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineEA88175AA3373139Type {
-    #[default]
-    #[serde(rename = "webset.paused")]
-    WebsetPaused,
-}
-impl CreatedAtBlockInlineEA88175AA3373139Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WebsetPaused => "webset.paused",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineEA88175AA3373139Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineEA88175AA3373139Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineEA88175AA3373139Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInlineEA88175AA3373139Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineEA88175AA3373139Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineEA88175AA3373139Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineCEA58FF4477489AB {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Import,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInlineCEA58FF4477489ABObject,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInlineCEA58FF4477489ABType,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCEA58FF4477489ABType {
-    #[default]
-    #[serde(rename = "import.completed")]
-    ImportCompleted,
-}
-impl CreatedAtBlockInlineCEA58FF4477489ABType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::ImportCompleted => "import.completed",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineCEA58FF4477489ABType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineCEA58FF4477489ABType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCEA58FF4477489ABObject {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInlineCEA58FF4477489ABObject {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineCEA58FF4477489ABObject {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineCEA58FF4477489ABObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineCCDC22E4D0FD035C {
+pub struct CreatedAtBlockInlineD8B57FF3DE334351 {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: WebsetSearch,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineCCDC22E4D0FD035CObject,
+    pub object: CreatedAtBlockInlineD8B57FF3DE334351Object,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineCCDC22E4D0FD035CType,
+    pub r#type: CreatedAtBlockInlineD8B57FF3DE334351Type,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCCDC22E4D0FD035CType {
-    #[default]
-    #[serde(rename = "webset.search.canceled")]
-    WebsetSearchCanceled,
-}
-impl CreatedAtBlockInlineCCDC22E4D0FD035CType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WebsetSearchCanceled => "webset.search.canceled",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineCCDC22E4D0FD035CType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineCCDC22E4D0FD035CType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCCDC22E4D0FD035CObject {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInlineCCDC22E4D0FD035CObject {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineCCDC22E4D0FD035CObject {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineCCDC22E4D0FD035CObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineCC6D9DB8D8E12227 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: WebsetSearch,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInlineCC6D9DB8D8E12227Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInlineCC6D9DB8D8E12227Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCC6D9DB8D8E12227Type {
+pub enum CreatedAtBlockInlineD8B57FF3DE334351Type {
     #[default]
     #[serde(rename = "webset.search.completed")]
     WebsetSearchCompleted,
 }
-impl CreatedAtBlockInlineCC6D9DB8D8E12227Type {
+impl CreatedAtBlockInlineD8B57FF3DE334351Type {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::WebsetSearchCompleted => "webset.search.completed",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineCC6D9DB8D8E12227Type {
+impl ::std::fmt::Display for CreatedAtBlockInlineD8B57FF3DE334351Type {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineCC6D9DB8D8E12227Type {
+impl AsRef<str> for CreatedAtBlockInlineD8B57FF3DE334351Type {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineCC6D9DB8D8E12227Object {
+pub enum CreatedAtBlockInlineD8B57FF3DE334351Object {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInlineCC6D9DB8D8E12227Object {
+impl CreatedAtBlockInlineD8B57FF3DE334351Object {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineCC6D9DB8D8E12227Object {
+impl ::std::fmt::Display for CreatedAtBlockInlineD8B57FF3DE334351Object {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineCC6D9DB8D8E12227Object {
+impl AsRef<str> for CreatedAtBlockInlineD8B57FF3DE334351Object {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineBE3AB6091CDAC8B2 {
+pub struct CreatedAtBlockInlineCE9EB4FCAFBF2AFA {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: Monitor,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInlineCE9EB4FCAFBF2AFAObject,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInlineCE9EB4FCAFBF2AFAType,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineCE9EB4FCAFBF2AFAType {
+    #[default]
+    #[serde(rename = "monitor.updated")]
+    MonitorUpdated,
+}
+impl CreatedAtBlockInlineCE9EB4FCAFBF2AFAType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::MonitorUpdated => "monitor.updated",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineCE9EB4FCAFBF2AFAType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineCE9EB4FCAFBF2AFAType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineCE9EB4FCAFBF2AFAObject {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInlineCE9EB4FCAFBF2AFAObject {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineCE9EB4FCAFBF2AFAObject {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineCE9EB4FCAFBF2AFAObject {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInlineC3EAE2BE46F66B95 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: Webset,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInlineC3EAE2BE46F66B95Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInlineC3EAE2BE46F66B95Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineC3EAE2BE46F66B95Type {
+    #[default]
+    #[serde(rename = "webset.paused")]
+    WebsetPaused,
+}
+impl CreatedAtBlockInlineC3EAE2BE46F66B95Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::WebsetPaused => "webset.paused",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineC3EAE2BE46F66B95Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineC3EAE2BE46F66B95Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineC3EAE2BE46F66B95Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInlineC3EAE2BE46F66B95Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineC3EAE2BE46F66B95Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineC3EAE2BE46F66B95Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInlineC06F50D571A67CE7 {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: MonitorRun,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineBE3AB6091CDAC8B2Object,
+    pub object: CreatedAtBlockInlineC06F50D571A67CE7Object,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineBE3AB6091CDAC8B2Type,
+    pub r#type: CreatedAtBlockInlineC06F50D571A67CE7Type,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineBE3AB6091CDAC8B2Type {
+pub enum CreatedAtBlockInlineC06F50D571A67CE7Type {
     #[default]
-    #[serde(rename = "monitor.run.completed")]
-    MonitorRunCompleted,
+    #[serde(rename = "monitor.run.created")]
+    MonitorRunCreated,
 }
-impl CreatedAtBlockInlineBE3AB6091CDAC8B2Type {
+impl CreatedAtBlockInlineC06F50D571A67CE7Type {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::MonitorRunCompleted => "monitor.run.completed",
+            Self::MonitorRunCreated => "monitor.run.created",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineBE3AB6091CDAC8B2Type {
+impl ::std::fmt::Display for CreatedAtBlockInlineC06F50D571A67CE7Type {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineBE3AB6091CDAC8B2Type {
+impl AsRef<str> for CreatedAtBlockInlineC06F50D571A67CE7Type {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineBE3AB6091CDAC8B2Object {
+pub enum CreatedAtBlockInlineC06F50D571A67CE7Object {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInlineBE3AB6091CDAC8B2Object {
+impl CreatedAtBlockInlineC06F50D571A67CE7Object {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineBE3AB6091CDAC8B2Object {
+impl ::std::fmt::Display for CreatedAtBlockInlineC06F50D571A67CE7Object {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineBE3AB6091CDAC8B2Object {
+impl AsRef<str> for CreatedAtBlockInlineC06F50D571A67CE7Object {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineB9A93589A5790046 {
+pub struct CreatedAtBlockInlineB5F11F376E502F93 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: Monitor,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInlineB5F11F376E502F93Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInlineB5F11F376E502F93Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineB5F11F376E502F93Type {
+    #[default]
+    #[serde(rename = "monitor.deleted")]
+    MonitorDeleted,
+}
+impl CreatedAtBlockInlineB5F11F376E502F93Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::MonitorDeleted => "monitor.deleted",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineB5F11F376E502F93Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineB5F11F376E502F93Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineB5F11F376E502F93Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInlineB5F11F376E502F93Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineB5F11F376E502F93Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineB5F11F376E502F93Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInlineABCBD67828ABB5F8 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: WebsetSearch,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInlineABCBD67828ABB5F8Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInlineABCBD67828ABB5F8Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineABCBD67828ABB5F8Type {
+    #[default]
+    #[serde(rename = "webset.search.canceled")]
+    WebsetSearchCanceled,
+}
+impl CreatedAtBlockInlineABCBD67828ABB5F8Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::WebsetSearchCanceled => "webset.search.canceled",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineABCBD67828ABB5F8Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineABCBD67828ABB5F8Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInlineABCBD67828ABB5F8Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInlineABCBD67828ABB5F8Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInlineABCBD67828ABB5F8Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInlineABCBD67828ABB5F8Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInline9E2D4892F7E59D27 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: Monitor,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInline9E2D4892F7E59D27Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInline9E2D4892F7E59D27Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline9E2D4892F7E59D27Type {
+    #[default]
+    #[serde(rename = "monitor.created")]
+    MonitorCreated,
+}
+impl CreatedAtBlockInline9E2D4892F7E59D27Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::MonitorCreated => "monitor.created",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline9E2D4892F7E59D27Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline9E2D4892F7E59D27Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline9E2D4892F7E59D27Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInline9E2D4892F7E59D27Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline9E2D4892F7E59D27Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline9E2D4892F7E59D27Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInline71EEB2C0DEB9C1EB {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: Import,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineB9A93589A5790046Object,
+    pub object: CreatedAtBlockInline71EEB2C0DEB9C1EBObject,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineB9A93589A5790046Type,
+    pub r#type: CreatedAtBlockInline71EEB2C0DEB9C1EBType,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineB9A93589A5790046Type {
+pub enum CreatedAtBlockInline71EEB2C0DEB9C1EBType {
     #[default]
-    #[serde(rename = "import.created")]
-    ImportCreated,
+    #[serde(rename = "import.completed")]
+    ImportCompleted,
 }
-impl CreatedAtBlockInlineB9A93589A5790046Type {
+impl CreatedAtBlockInline71EEB2C0DEB9C1EBType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::ImportCreated => "import.created",
+            Self::ImportCompleted => "import.completed",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineB9A93589A5790046Type {
+impl ::std::fmt::Display for CreatedAtBlockInline71EEB2C0DEB9C1EBType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineB9A93589A5790046Type {
+impl AsRef<str> for CreatedAtBlockInline71EEB2C0DEB9C1EBType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineB9A93589A5790046Object {
+pub enum CreatedAtBlockInline71EEB2C0DEB9C1EBObject {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInlineB9A93589A5790046Object {
+impl CreatedAtBlockInline71EEB2C0DEB9C1EBObject {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineB9A93589A5790046Object {
+impl ::std::fmt::Display for CreatedAtBlockInline71EEB2C0DEB9C1EBObject {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineB9A93589A5790046Object {
+impl AsRef<str> for CreatedAtBlockInline71EEB2C0DEB9C1EBObject {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineB8133AE273D274B4 {
+pub struct CreatedAtBlockInline6AF571D8987DCFCE {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: WebsetSearch,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInline6AF571D8987DCFCEObject,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInline6AF571D8987DCFCEType,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline6AF571D8987DCFCEType {
+    #[default]
+    #[serde(rename = "webset.search.created")]
+    WebsetSearchCreated,
+}
+impl CreatedAtBlockInline6AF571D8987DCFCEType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::WebsetSearchCreated => "webset.search.created",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline6AF571D8987DCFCEType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline6AF571D8987DCFCEType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline6AF571D8987DCFCEObject {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInline6AF571D8987DCFCEObject {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline6AF571D8987DCFCEObject {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline6AF571D8987DCFCEObject {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInline5A46E42A33F04A64 {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: WebsetItem,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineB8133AE273D274B4Object,
+    pub object: CreatedAtBlockInline5A46E42A33F04A64Object,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineB8133AE273D274B4Type,
+    pub r#type: CreatedAtBlockInline5A46E42A33F04A64Type,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineB8133AE273D274B4Type {
+pub enum CreatedAtBlockInline5A46E42A33F04A64Type {
     #[default]
     #[serde(rename = "webset.item.enriched")]
     WebsetItemEnriched,
 }
-impl CreatedAtBlockInlineB8133AE273D274B4Type {
+impl CreatedAtBlockInline5A46E42A33F04A64Type {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::WebsetItemEnriched => "webset.item.enriched",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineB8133AE273D274B4Type {
+impl ::std::fmt::Display for CreatedAtBlockInline5A46E42A33F04A64Type {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineB8133AE273D274B4Type {
+impl AsRef<str> for CreatedAtBlockInline5A46E42A33F04A64Type {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineB8133AE273D274B4Object {
+pub enum CreatedAtBlockInline5A46E42A33F04A64Object {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInlineB8133AE273D274B4Object {
+impl CreatedAtBlockInline5A46E42A33F04A64Object {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineB8133AE273D274B4Object {
+impl ::std::fmt::Display for CreatedAtBlockInline5A46E42A33F04A64Object {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineB8133AE273D274B4Object {
+impl AsRef<str> for CreatedAtBlockInline5A46E42A33F04A64Object {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineAAAE814B91952425 {
+pub struct CreatedAtBlockInline3D5D06CA6103D960 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: MonitorRun,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInline3D5D06CA6103D960Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInline3D5D06CA6103D960Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline3D5D06CA6103D960Type {
+    #[default]
+    #[serde(rename = "monitor.run.completed")]
+    MonitorRunCompleted,
+}
+impl CreatedAtBlockInline3D5D06CA6103D960Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::MonitorRunCompleted => "monitor.run.completed",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline3D5D06CA6103D960Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline3D5D06CA6103D960Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline3D5D06CA6103D960Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInline3D5D06CA6103D960Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline3D5D06CA6103D960Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline3D5D06CA6103D960Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInline32FB88A9C7D56D4F {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: WebsetItem,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineAAAE814B91952425Object,
+    pub object: CreatedAtBlockInline32FB88A9C7D56D4FObject,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineAAAE814B91952425Type,
+    pub r#type: CreatedAtBlockInline32FB88A9C7D56D4FType,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WebsetItem {
@@ -12378,6 +12852,7 @@ pub struct WebsetItem {
     pub evaluations: Vec<WebsetItemEvaluation>,
     ///The unique identifier for the Webset Item
     pub id: String,
+    ///The type of object
     #[serde(default)]
     pub object: WebsetItemObject,
     ///The properties of the Item
@@ -12732,7 +13207,7 @@ pub struct WebsetItemPersonPropertiesPerson {
     pub company: Option<WebsetItemPersonPropertiesPersonCompany>,
     ///The education history of the person
     #[serde(rename = "educationHistory")]
-    pub education_history: Vec<WebsetItemPersonPropertiesPersonObject>,
+    pub education_history: Vec<WebsetItemPersonPropertiesPersonEducationHistoryItem>,
     ///The location of the person
     pub location: Option<String>,
     ///The name of the person
@@ -12744,13 +13219,13 @@ pub struct WebsetItemPersonPropertiesPerson {
     pub position: Option<String>,
     ///The work history of the person
     #[serde(rename = "workHistory")]
-    pub work_history: Vec<WebsetItemPersonPropertiesPersonObjectInline>,
+    pub work_history: Vec<WebsetItemPersonPropertiesPersonWorkHistoryItem>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObjectInline {
-    pub company: Option<WebsetItemPersonPropertiesPersonObjectInlineCompany>,
+pub struct WebsetItemPersonPropertiesPersonWorkHistoryItem {
+    pub company: Option<WebsetItemPersonPropertiesPersonWorkHistoryItemCompany>,
     ///Employment dates
-    pub dates: Option<WebsetItemPersonPropertiesPersonObjectInlineDates>,
+    pub dates: Option<WebsetItemPersonPropertiesPersonWorkHistoryItemDates>,
     ///Work location
     pub location: Option<String>,
     ///Job title or position
@@ -12758,14 +13233,14 @@ pub struct WebsetItemPersonPropertiesPersonObjectInline {
 }
 ///Employment dates
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObjectInlineDates {
+pub struct WebsetItemPersonPropertiesPersonWorkHistoryItemDates {
     ///Start date
     pub from: Option<String>,
     ///End date
     pub to: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObjectInlineCompany {
+pub struct WebsetItemPersonPropertiesPersonWorkHistoryItemCompany {
     ///Entity ID of the company
     pub id: Option<String>,
     ///LinkedIn URL of the company
@@ -12775,15 +13250,17 @@ pub struct WebsetItemPersonPropertiesPersonObjectInlineCompany {
     pub name: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObject {
+pub struct WebsetItemPersonPropertiesPersonEducationHistoryItem {
     ///Education dates
-    pub dates: Option<WebsetItemPersonPropertiesPersonObjectDates>,
+    pub dates: Option<WebsetItemPersonPropertiesPersonEducationHistoryItemDates>,
     ///Degree obtained
     pub degree: Option<String>,
-    pub institution: Option<WebsetItemPersonPropertiesPersonObjectInstitution>,
+    pub institution: Option<
+        WebsetItemPersonPropertiesPersonEducationHistoryItemInstitution,
+    >,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObjectInstitution {
+pub struct WebsetItemPersonPropertiesPersonEducationHistoryItemInstitution {
     ///Entity ID of the institution
     pub id: Option<String>,
     ///LinkedIn URL of the institution
@@ -12794,7 +13271,7 @@ pub struct WebsetItemPersonPropertiesPersonObjectInstitution {
 }
 ///Education dates
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemPersonPropertiesPersonObjectDates {
+pub struct WebsetItemPersonPropertiesPersonEducationHistoryItemDates {
     ///Start date
     pub from: Option<String>,
     ///End date
@@ -12807,6 +13284,7 @@ pub struct WebsetItemPersonPropertiesPersonCompany {
     ///The name of the company
     pub name: String,
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum WebsetItemObject {
     #[default]
@@ -12838,7 +13316,7 @@ pub struct WebsetItemEvaluation {
     pub reasoning: String,
     ///The references used to generate the result.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub references: Option<Vec<WebsetItemEvaluationObject>>,
+    pub references: Option<Vec<WebsetItemEvaluationReferencesItem>>,
     ///The satisfaction of the criterion
     pub satisfied: WebsetItemEvaluationSatisfied,
 }
@@ -12873,7 +13351,7 @@ impl AsRef<str> for WebsetItemEvaluationSatisfied {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetItemEvaluationObject {
+pub struct WebsetItemEvaluationReferencesItem {
     ///The relevant snippet of the reference content
     pub snippet: Option<String>,
     ///The title of the reference
@@ -13091,12 +13569,13 @@ pub struct EnrichmentResult {
     #[serde(rename = "enrichmentId")]
     pub enrichment_id: String,
     pub format: WebsetEnrichmentFormat,
+    ///The type of object
     #[serde(default)]
     pub object: EnrichmentResultObject,
     ///The reasoning for the result when an Agent is used.
     pub reasoning: Option<String>,
     ///The references used to generate the result.
-    pub references: Vec<EnrichmentResultObjectInline>,
+    pub references: Vec<EnrichmentResultReferencesItem>,
     ///The result of the enrichment.
     pub result: Option<Vec<String>>,
     ///The status of the enrichment result.
@@ -13133,7 +13612,7 @@ impl AsRef<str> for EnrichmentResultStatus {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct EnrichmentResultObjectInline {
+pub struct EnrichmentResultReferencesItem {
     ///The relevant snippet of the reference content
     pub snippet: Option<String>,
     ///The title of the reference
@@ -13141,6 +13620,7 @@ pub struct EnrichmentResultObjectInline {
     ///The URL of the reference
     pub url: url::Url,
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum EnrichmentResultObject {
     #[default]
@@ -13164,461 +13644,239 @@ impl AsRef<str> for EnrichmentResultObject {
         self.as_str()
     }
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineAAAE814B91952425Type {
+pub enum CreatedAtBlockInline32FB88A9C7D56D4FType {
     #[default]
     #[serde(rename = "webset.item.created")]
     WebsetItemCreated,
 }
-impl CreatedAtBlockInlineAAAE814B91952425Type {
+impl CreatedAtBlockInline32FB88A9C7D56D4FType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::WebsetItemCreated => "webset.item.created",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineAAAE814B91952425Type {
+impl ::std::fmt::Display for CreatedAtBlockInline32FB88A9C7D56D4FType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineAAAE814B91952425Type {
+impl AsRef<str> for CreatedAtBlockInline32FB88A9C7D56D4FType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineAAAE814B91952425Object {
+pub enum CreatedAtBlockInline32FB88A9C7D56D4FObject {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInlineAAAE814B91952425Object {
+impl CreatedAtBlockInline32FB88A9C7D56D4FObject {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInlineAAAE814B91952425Object {
+impl ::std::fmt::Display for CreatedAtBlockInline32FB88A9C7D56D4FObject {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInlineAAAE814B91952425Object {
+impl AsRef<str> for CreatedAtBlockInline32FB88A9C7D56D4FObject {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInlineA8098962C380F4D4 {
+pub struct CreatedAtBlockInline2301EBA58D1B0526 {
+    ///The date and time the event was created
+    #[serde(rename = "createdAt")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub data: Import,
+    ///The unique identifier for the event
+    pub id: String,
+    ///The type of object
+    #[serde(default)]
+    pub object: CreatedAtBlockInline2301EBA58D1B0526Object,
+    ///The type of event
+    #[serde(default)]
+    pub r#type: CreatedAtBlockInline2301EBA58D1B0526Type,
+}
+///The type of event
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline2301EBA58D1B0526Type {
+    #[default]
+    #[serde(rename = "import.created")]
+    ImportCreated,
+}
+impl CreatedAtBlockInline2301EBA58D1B0526Type {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ImportCreated => "import.created",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline2301EBA58D1B0526Type {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline2301EBA58D1B0526Type {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The type of object
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreatedAtBlockInline2301EBA58D1B0526Object {
+    #[default]
+    #[serde(rename = "event")]
+    Event,
+}
+impl CreatedAtBlockInline2301EBA58D1B0526Object {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Event => "event",
+        }
+    }
+}
+impl ::std::fmt::Display for CreatedAtBlockInline2301EBA58D1B0526Object {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreatedAtBlockInline2301EBA58D1B0526Object {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreatedAtBlockInline19EED500AD99CF23 {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub data: WebsetSearch,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInlineA8098962C380F4D4Object,
+    pub object: CreatedAtBlockInline19EED500AD99CF23Object,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInlineA8098962C380F4D4Type,
+    pub r#type: CreatedAtBlockInline19EED500AD99CF23Type,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineA8098962C380F4D4Type {
-    #[default]
-    #[serde(rename = "webset.search.created")]
-    WebsetSearchCreated,
-}
-impl CreatedAtBlockInlineA8098962C380F4D4Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WebsetSearchCreated => "webset.search.created",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineA8098962C380F4D4Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineA8098962C380F4D4Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInlineA8098962C380F4D4Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInlineA8098962C380F4D4Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInlineA8098962C380F4D4Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInlineA8098962C380F4D4Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline7254C59D133DA7D2 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Webset,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInline7254C59D133DA7D2Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInline7254C59D133DA7D2Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline7254C59D133DA7D2Type {
-    #[default]
-    #[serde(rename = "webset.idle")]
-    WebsetIdle,
-}
-impl CreatedAtBlockInline7254C59D133DA7D2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WebsetIdle => "webset.idle",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline7254C59D133DA7D2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline7254C59D133DA7D2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline7254C59D133DA7D2Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInline7254C59D133DA7D2Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline7254C59D133DA7D2Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline7254C59D133DA7D2Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline5B7B4280FB0F96C1 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: MonitorRun,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInline5B7B4280FB0F96C1Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInline5B7B4280FB0F96C1Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline5B7B4280FB0F96C1Type {
-    #[default]
-    #[serde(rename = "monitor.run.created")]
-    MonitorRunCreated,
-}
-impl CreatedAtBlockInline5B7B4280FB0F96C1Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::MonitorRunCreated => "monitor.run.created",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline5B7B4280FB0F96C1Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline5B7B4280FB0F96C1Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline5B7B4280FB0F96C1Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInline5B7B4280FB0F96C1Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline5B7B4280FB0F96C1Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline5B7B4280FB0F96C1Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline3B3B8D0BEE9D6F75 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Monitor,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInline3B3B8D0BEE9D6F75Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInline3B3B8D0BEE9D6F75Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline3B3B8D0BEE9D6F75Type {
-    #[default]
-    #[serde(rename = "monitor.deleted")]
-    MonitorDeleted,
-}
-impl CreatedAtBlockInline3B3B8D0BEE9D6F75Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::MonitorDeleted => "monitor.deleted",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline3B3B8D0BEE9D6F75Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline3B3B8D0BEE9D6F75Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline3B3B8D0BEE9D6F75Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInline3B3B8D0BEE9D6F75Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline3B3B8D0BEE9D6F75Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline3B3B8D0BEE9D6F75Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline26B83B91DD497A33 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Monitor,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInline26B83B91DD497A33Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInline26B83B91DD497A33Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline26B83B91DD497A33Type {
-    #[default]
-    #[serde(rename = "monitor.created")]
-    MonitorCreated,
-}
-impl CreatedAtBlockInline26B83B91DD497A33Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::MonitorCreated => "monitor.created",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline26B83B91DD497A33Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline26B83B91DD497A33Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline26B83B91DD497A33Object {
-    #[default]
-    #[serde(rename = "event")]
-    Event,
-}
-impl CreatedAtBlockInline26B83B91DD497A33Object {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Event => "event",
-        }
-    }
-}
-impl ::std::fmt::Display for CreatedAtBlockInline26B83B91DD497A33Object {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreatedAtBlockInline26B83B91DD497A33Object {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline066A56B179480C81 {
-    ///The date and time the event was created
-    #[serde(rename = "createdAt")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: WebsetSearch,
-    ///The unique identifier for the event
-    pub id: String,
-    #[serde(default)]
-    pub object: CreatedAtBlockInline066A56B179480C81Object,
-    #[serde(default)]
-    pub r#type: CreatedAtBlockInline066A56B179480C81Type,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline066A56B179480C81Type {
+pub enum CreatedAtBlockInline19EED500AD99CF23Type {
     #[default]
     #[serde(rename = "webset.search.updated")]
     WebsetSearchUpdated,
 }
-impl CreatedAtBlockInline066A56B179480C81Type {
+impl CreatedAtBlockInline19EED500AD99CF23Type {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::WebsetSearchUpdated => "webset.search.updated",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInline066A56B179480C81Type {
+impl ::std::fmt::Display for CreatedAtBlockInline19EED500AD99CF23Type {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInline066A56B179480C81Type {
+impl AsRef<str> for CreatedAtBlockInline19EED500AD99CF23Type {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline066A56B179480C81Object {
+pub enum CreatedAtBlockInline19EED500AD99CF23Object {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInline066A56B179480C81Object {
+impl CreatedAtBlockInline19EED500AD99CF23Object {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInline066A56B179480C81Object {
+impl ::std::fmt::Display for CreatedAtBlockInline19EED500AD99CF23Object {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInline066A56B179480C81Object {
+impl AsRef<str> for CreatedAtBlockInline19EED500AD99CF23Object {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedAtBlockInline012B38CB35D2572E {
+pub struct CreatedAtBlockInline07EFDC0E0A2564D4 {
     ///The date and time the event was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
-    pub data: Monitor,
+    pub data: Webset,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
-    pub object: CreatedAtBlockInline012B38CB35D2572EObject,
+    pub object: CreatedAtBlockInline07EFDC0E0A2564D4Object,
+    ///The type of event
     #[serde(default)]
-    pub r#type: CreatedAtBlockInline012B38CB35D2572EType,
+    pub r#type: CreatedAtBlockInline07EFDC0E0A2564D4Type,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline012B38CB35D2572EType {
+pub enum CreatedAtBlockInline07EFDC0E0A2564D4Type {
     #[default]
-    #[serde(rename = "monitor.updated")]
-    MonitorUpdated,
+    #[serde(rename = "webset.idle")]
+    WebsetIdle,
 }
-impl CreatedAtBlockInline012B38CB35D2572EType {
+impl CreatedAtBlockInline07EFDC0E0A2564D4Type {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::MonitorUpdated => "monitor.updated",
+            Self::WebsetIdle => "webset.idle",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInline012B38CB35D2572EType {
+impl ::std::fmt::Display for CreatedAtBlockInline07EFDC0E0A2564D4Type {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInline012B38CB35D2572EType {
+impl AsRef<str> for CreatedAtBlockInline07EFDC0E0A2564D4Type {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreatedAtBlockInline012B38CB35D2572EObject {
+pub enum CreatedAtBlockInline07EFDC0E0A2564D4Object {
     #[default]
     #[serde(rename = "event")]
     Event,
 }
-impl CreatedAtBlockInline012B38CB35D2572EObject {
+impl CreatedAtBlockInline07EFDC0E0A2564D4Object {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Event => "event",
         }
     }
 }
-impl ::std::fmt::Display for CreatedAtBlockInline012B38CB35D2572EObject {
+impl ::std::fmt::Display for CreatedAtBlockInline07EFDC0E0A2564D4Object {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreatedAtBlockInline012B38CB35D2572EObject {
+impl AsRef<str> for CreatedAtBlockInline07EFDC0E0A2564D4Object {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -13631,11 +13889,14 @@ pub struct CreatedAtBlockInline {
     pub data: Webset,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
     pub object: CreatedAtBlockInlineObject,
+    ///The type of event
     #[serde(default)]
     pub r#type: CreatedAtBlockInlineType,
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum CreatedAtBlockInlineType {
     #[default]
@@ -13659,6 +13920,7 @@ impl AsRef<str> for CreatedAtBlockInlineType {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum CreatedAtBlockInlineObject {
     #[default]
@@ -13690,8 +13952,10 @@ pub struct CreatedAtBlock {
     pub data: Webset,
     ///The unique identifier for the event
     pub id: String,
+    ///The type of object
     #[serde(default)]
     pub object: CreatedAtBlockObject,
+    ///The type of event
     #[serde(default)]
     pub r#type: CreatedAtBlockType,
 }
@@ -13707,7 +13971,7 @@ pub struct Webset {
     pub enrichments: Vec<WebsetEnrichment>,
     ///The Excludes sources (existing imports or websets) that apply to all operations within this Webset. Any results found within these sources will be omitted across all search and import operations.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub excludes: Option<Vec<WebsetObject>>,
+    pub excludes: Option<Vec<WebsetExcludesItem>>,
     ///The external identifier for the webset
     #[serde(rename = "externalId")]
     pub external_id: Option<String>,
@@ -13720,8 +13984,9 @@ pub struct Webset {
     pub metadata: Option<WebsetMetadata>,
     ///The Monitors for the Webset.
     pub monitors: Vec<Monitor>,
+    ///The type of object
     #[serde(default)]
-    pub object: WebsetObjectWebset,
+    pub object: WebsetObject,
     ///The searches that have been performed on the webset.
     pub searches: Vec<WebsetSearch>,
     ///The status of the webset
@@ -13781,10 +14046,10 @@ pub struct WebsetSearch {
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     ///The criteria the search will use to evaluate the results. If not provided, we will automatically generate them for you.
-    pub criteria: Vec<WebsetSearchObject>,
+    pub criteria: Vec<WebsetSearchCriteriaItem>,
     pub entity: Option<Entity>,
     ///Sources (existing imports or websets) used to omit certain results to be found during the search.
-    pub exclude: Vec<WebsetSearchObjectInline>,
+    pub exclude: Vec<WebsetSearchExcludeItem>,
     ///The unique identifier for the search
     pub id: String,
     ///The soft cap requested for matching people from the same current employer company, or null when no cap was requested.
@@ -13794,8 +14059,9 @@ pub struct WebsetSearch {
     ///Set of key-value pairs you want to associate with this object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<WebsetSearchMetadata>,
+    ///The type of object
     #[serde(default)]
-    pub object: WebsetSearchObjectWebsetSearch,
+    pub object: WebsetSearchObject,
     ///The progress of the search
     pub progress: WebsetSearchProgress,
     ///The query used to create the search.
@@ -13803,10 +14069,8 @@ pub struct WebsetSearch {
     pub query: String,
     ///Recall metrics for the search, null if not yet computed or requested.
     pub recall: Option<WebsetSearchRecall>,
-    /**The scope of the search. By default, there is no scope - thus searching the web.
-
-If provided during creation, the search will only be performed on the sources provided.*/
-    pub scope: Vec<WebsetSearchObjectInlineE23275E1D9284D87>,
+    ///Sources the search is limited to. Empty when the search covers the whole web.
+    pub scope: Vec<WebsetSearchScopeItem>,
     ///The status of the search
     pub status: WebsetSearchStatus,
     ///The date and time the search was updated
@@ -13853,21 +14117,21 @@ impl AsRef<str> for WebsetSearchStatus {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetSearchObjectInlineE23275E1D9284D87 {
+pub struct WebsetSearchScopeItem {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relationship: Option<WebsetSearchObjectInlineE23275E1D9284D87Relationship>,
-    pub source: WebsetSearchObjectInlineE23275E1D9284D87Source,
+    pub relationship: Option<WebsetSearchScopeItemRelationship>,
+    pub source: WebsetSearchScopeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetSearchObjectInlineE23275E1D9284D87Source {
+pub enum WebsetSearchScopeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl WebsetSearchObjectInlineE23275E1D9284D87Source {
+impl WebsetSearchScopeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -13875,18 +14139,18 @@ impl WebsetSearchObjectInlineE23275E1D9284D87Source {
         }
     }
 }
-impl ::std::fmt::Display for WebsetSearchObjectInlineE23275E1D9284D87Source {
+impl ::std::fmt::Display for WebsetSearchScopeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for WebsetSearchObjectInlineE23275E1D9284D87Source {
+impl AsRef<str> for WebsetSearchScopeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetSearchObjectInlineE23275E1D9284D87Relationship {
+pub struct WebsetSearchScopeItemRelationship {
     ///What the relationship of the entities you hope to find is relative to the entities contained in the provided source.
     pub definition: String,
     ///Constraint: minimum=1, maximum=10
@@ -13958,25 +14222,26 @@ pub struct WebsetSearchProgress {
     #[serde(rename = "timeLeft")]
     pub time_left: Option<f64>,
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetSearchObjectWebsetSearch {
+pub enum WebsetSearchObject {
     #[default]
     #[serde(rename = "webset_search")]
     WebsetSearch,
 }
-impl WebsetSearchObjectWebsetSearch {
+impl WebsetSearchObject {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::WebsetSearch => "webset_search",
         }
     }
 }
-impl ::std::fmt::Display for WebsetSearchObjectWebsetSearch {
+impl ::std::fmt::Display for WebsetSearchObject {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for WebsetSearchObjectWebsetSearch {
+impl AsRef<str> for WebsetSearchObject {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -13990,19 +14255,19 @@ pub struct WebsetSearchMetadata {
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetSearchObjectInline {
+pub struct WebsetSearchExcludeItem {
     pub id: String,
-    pub source: WebsetSearchObjectInlineSource,
+    pub source: WebsetSearchExcludeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetSearchObjectInlineSource {
+pub enum WebsetSearchExcludeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl WebsetSearchObjectInlineSource {
+impl WebsetSearchExcludeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -14010,18 +14275,18 @@ impl WebsetSearchObjectInlineSource {
         }
     }
 }
-impl ::std::fmt::Display for WebsetSearchObjectInlineSource {
+impl ::std::fmt::Display for WebsetSearchExcludeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for WebsetSearchObjectInlineSource {
+impl AsRef<str> for WebsetSearchExcludeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetSearchObject {
+pub struct WebsetSearchCriteriaItem {
     ///The description of the criterion
     ///Constraint: minLength=1, maxLength=1000
     pub description: String,
@@ -14059,25 +14324,26 @@ impl AsRef<str> for WebsetSearchCanceledReason {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetObjectWebset {
+pub enum WebsetObject {
     #[default]
     #[serde(rename = "webset")]
     Webset,
 }
-impl WebsetObjectWebset {
+impl WebsetObject {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Webset => "webset",
         }
     }
 }
-impl ::std::fmt::Display for WebsetObjectWebset {
+impl ::std::fmt::Display for WebsetObject {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for WebsetObjectWebset {
+impl AsRef<str> for WebsetObject {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -14091,19 +14357,19 @@ pub struct WebsetMetadata {
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetObject {
+pub struct WebsetExcludesItem {
     pub id: String,
-    pub source: WebsetObjectSource,
+    pub source: WebsetExcludesItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetObjectSource {
+pub enum WebsetExcludesItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl WebsetObjectSource {
+impl WebsetExcludesItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -14111,12 +14377,12 @@ impl WebsetObjectSource {
         }
     }
 }
-impl ::std::fmt::Display for WebsetObjectSource {
+impl ::std::fmt::Display for WebsetExcludesItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for WebsetObjectSource {
+impl AsRef<str> for WebsetExcludesItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -14138,10 +14404,11 @@ This will be automatically generated based on the description and format.*/
     ///The metadata of the enrichment
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<WebsetEnrichmentMetadata>,
+    ///The type of object
     #[serde(default)]
     pub object: WebsetEnrichmentObject,
     ///When the format is options, the different options for the enrichment agent to choose from.
-    pub options: Option<Vec<WebsetEnrichmentObjectInline>>,
+    pub options: Option<Vec<WebsetEnrichmentOptionsItem>>,
     ///The status of the enrichment
     pub status: WebsetEnrichmentStatus,
     /**The title of the enrichment.
@@ -14186,10 +14453,11 @@ impl AsRef<str> for WebsetEnrichmentStatus {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebsetEnrichmentObjectInline {
+pub struct WebsetEnrichmentOptionsItem {
     ///The label of the option
     pub label: String,
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum WebsetEnrichmentObject {
     #[default]
@@ -14221,53 +14489,10 @@ pub struct WebsetEnrichmentMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetEnrichmentFormat {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-    #[serde(rename = "date")]
-    Date,
-    #[serde(rename = "number")]
-    Number,
-    #[serde(rename = "options")]
-    Options,
-    #[serde(rename = "email")]
-    Email,
-    #[serde(rename = "phone")]
-    Phone,
-    #[serde(rename = "url")]
-    Url,
-}
-impl WebsetEnrichmentFormat {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-            Self::Date => "date",
-            Self::Number => "number",
-            Self::Options => "options",
-            Self::Email => "email",
-            Self::Phone => "phone",
-            Self::Url => "url",
-        }
-    }
-}
-impl ::std::fmt::Display for WebsetEnrichmentFormat {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for WebsetEnrichmentFormat {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Monitor {
-    ///Behavior to perform when monitor runs
-    pub behavior: MonitorBehaviorInline,
-    ///How often the monitor will run
-    pub cadence: MonitorCadenceInline,
+    pub behavior: MonitorBehavior,
+    pub cadence: MonitorCadence,
     ///When the monitor was created
     #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -14469,102 +14694,6 @@ impl AsRef<str> for MonitorRunObject {
         self.as_str()
     }
 }
-///How often the monitor will run
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorCadenceInline {
-    ///Cron expression for monitor cadence (must be a valid Unix cron with 5 fields). The schedule must trigger at most once per day.
-    pub cron: String,
-    ///IANA timezone (e.g., "America/New_York")
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timezone: Option<String>,
-}
-///Behavior to perform when monitor runs
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehaviorInline {
-    /**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
-    pub config: MonitorBehaviorInlineConfig,
-    #[serde(default)]
-    pub r#type: MonitorBehaviorInlineType,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum MonitorBehaviorInlineType {
-    #[default]
-    #[serde(rename = "search")]
-    Search,
-}
-impl MonitorBehaviorInlineType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Search => "search",
-        }
-    }
-}
-impl ::std::fmt::Display for MonitorBehaviorInlineType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for MonitorBehaviorInlineType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-/**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehaviorInlineConfig {
-    ///The behaviour of the Search when it is added to a Webset.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub behavior: Option<MonitorBehaviorInlineConfigBehavior>,
-    ///The maximum number of results to find
-    ///Constraint: exclusiveMinimum=0
-    pub count: f64,
-    ///The criteria to search for. By default, the criteria from the last search is used.
-    ///Constraint: maxItems=5
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub criteria: Option<Vec<MonitorBehaviorInlineConfigObject>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<Entity>,
-    ///The query to search for. By default, the query from the last search is used.
-    ///Constraint: minLength=2, maxLength=10000
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub query: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitorBehaviorInlineConfigObject {
-    ///Constraint: minLength=2, maxLength=1000
-    pub description: String,
-}
-///The behaviour of the Search when it is added to a Webset.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum MonitorBehaviorInlineConfigBehavior {
-    #[serde(rename = "override")]
-    Override,
-    #[default]
-    #[serde(rename = "append")]
-    Append,
-}
-impl MonitorBehaviorInlineConfigBehavior {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Override => "override",
-            Self::Append => "append",
-        }
-    }
-}
-impl ::std::fmt::Display for MonitorBehaviorInlineConfigBehavior {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for MonitorBehaviorInlineConfigBehavior {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Import {
     ///The number of entities in the import
@@ -14723,6 +14852,7 @@ impl AsRef<str> for ImportFailedReason {
         self.as_str()
     }
 }
+///The type of event
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum CreatedAtBlockType {
     #[default]
@@ -14746,6 +14876,7 @@ impl AsRef<str> for CreatedAtBlockType {
         self.as_str()
     }
 }
+///The type of object
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum CreatedAtBlockObject {
     #[default]
@@ -14778,17 +14909,15 @@ pub struct CreateWebsetSearchParameters {
 The actual number of Items found may be less than this number depending on the query complexity.*/
     ///Constraint: minimum=1
     pub count: f64,
-    /**Criteria every item is evaluated against.
-
-It's not required to provide your own criteria, we automatically detect the criteria from all the information provided in the query. Only use this when you need more fine control.*/
+    ///Criteria every Item is evaluated against. Generated from the query when omitted.
     ///Constraint: minItems=1, maxItems=5
     #[serde(skip_serializing_if = "Option::is_none")]
     pub criteria: Option<Vec<CreateCriterionParameters>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entity: Option<Entity>,
-    ///Sources (existing imports or websets) to exclude from search results. Any results found within these sources will be omitted to prevent finding them during search.
+    ///Imports or Websets whose items are left out of this search's results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclude: Option<Vec<CreateWebsetSearchParametersObject>>,
+    pub exclude: Option<Vec<CreateWebsetSearchParametersExcludeItem>>,
     ///Optional soft cap for people searches. When set, the search will try to include at most this many matching people from the same current employer company.
     ///Constraint: minimum=1
     #[serde(rename = "maxPeoplePerCompany", skip_serializing_if = "Option::is_none")]
@@ -14803,13 +14932,12 @@ Be specific and descriptive about your requirements, characteristics, and any co
 Any URLs provided will be crawled and used as additional context for the search.*/
     ///Constraint: minLength=1, maxLength=5000
     pub query: String,
-    /**Whether to provide an estimate of how many total relevant results could exist for this search.
-Result of the analysis will be available in the `recall` field within the search request.*/
+    ///Whether to estimate how many relevant results exist for this search. The estimate is returned in the search's `recall` field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recall: Option<bool>,
     ///Limit the search to specific sources (existing imports). Any results found within these sources matching the search criteria will be included in the Webset.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope: Option<Vec<CreateWebsetSearchParametersObjectInline>>,
+    pub scope: Option<Vec<CreateWebsetSearchParametersScopeItem>>,
 }
 impl CreateWebsetSearchParameters {
     /// Construct this request with every required wire field.
@@ -14865,7 +14993,10 @@ impl CreateWebsetSearchParametersBuilder {
     }
     #[doc = concat!("Set the optional `", "exclude", "` request field.")]
     #[must_use]
-    pub fn exclude(mut self, exclude: Vec<CreateWebsetSearchParametersObject>) -> Self {
+    pub fn exclude(
+        mut self,
+        exclude: Vec<CreateWebsetSearchParametersExcludeItem>,
+    ) -> Self {
         self.value.exclude = Some(exclude);
         self
     }
@@ -14889,10 +15020,7 @@ impl CreateWebsetSearchParametersBuilder {
     }
     #[doc = concat!("Set the optional `", "scope", "` request field.")]
     #[must_use]
-    pub fn scope(
-        mut self,
-        scope: Vec<CreateWebsetSearchParametersObjectInline>,
-    ) -> Self {
+    pub fn scope(mut self, scope: Vec<CreateWebsetSearchParametersScopeItem>) -> Self {
         self.value.scope = Some(scope);
         self
     }
@@ -14902,23 +15030,23 @@ impl CreateWebsetSearchParametersBuilder {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetSearchParametersObjectInline {
+pub struct CreateWebsetSearchParametersScopeItem {
     ///The ID of the source to search.
     ///Constraint: minLength=1
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relationship: Option<CreateWebsetSearchParametersObjectInlineRelationship>,
-    pub source: CreateWebsetSearchParametersObjectInlineSource,
+    pub relationship: Option<CreateWebsetSearchParametersScopeItemRelationship>,
+    pub source: CreateWebsetSearchParametersScopeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetSearchParametersObjectInlineSource {
+pub enum CreateWebsetSearchParametersScopeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetSearchParametersObjectInlineSource {
+impl CreateWebsetSearchParametersScopeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -14926,18 +15054,18 @@ impl CreateWebsetSearchParametersObjectInlineSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetSearchParametersObjectInlineSource {
+impl ::std::fmt::Display for CreateWebsetSearchParametersScopeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetSearchParametersObjectInlineSource {
+impl AsRef<str> for CreateWebsetSearchParametersScopeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetSearchParametersObjectInlineRelationship {
+pub struct CreateWebsetSearchParametersScopeItemRelationship {
     ///What the relationship of the entities you hope to find is relative to the entities contained in the provided source.
     pub definition: String,
     ///Constraint: minimum=1, maximum=10
@@ -14952,47 +15080,21 @@ pub struct CreateWebsetSearchParametersMetadata {
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetSearchParametersObject {
+pub struct CreateWebsetSearchParametersExcludeItem {
     ///The ID of the source to exclude.
     ///Constraint: minLength=1
     pub id: String,
-    pub source: CreateWebsetSearchParametersObjectSource,
+    pub source: CreateWebsetSearchParametersExcludeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum WebsetSearchBehavior {
-    #[default]
-    #[serde(rename = "override")]
-    Override,
-    #[serde(rename = "append")]
-    Append,
-}
-impl WebsetSearchBehavior {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Override => "override",
-            Self::Append => "append",
-        }
-    }
-}
-impl ::std::fmt::Display for WebsetSearchBehavior {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for WebsetSearchBehavior {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetSearchParametersObjectSource {
+pub enum CreateWebsetSearchParametersExcludeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetSearchParametersObjectSource {
+impl CreateWebsetSearchParametersExcludeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -15000,26 +15102,24 @@ impl CreateWebsetSearchParametersObjectSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetSearchParametersObjectSource {
+impl ::std::fmt::Display for CreateWebsetSearchParametersExcludeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetSearchParametersObjectSource {
+impl AsRef<str> for CreateWebsetSearchParametersExcludeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CreateWebsetParameters {
-    /**Add enrichments to extract additional data from found items.
-
-Enrichments automatically search for and extract specific information (like contact details, funding data, employee counts, etc.) from each item added to your Webset.*/
+    ///Enrichments that extract additional data from each Item added to the Webset.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enrichments: Option<Vec<CreateEnrichmentParameters>>,
     ///Global exclusion sources (existing imports or websets) that apply to all operations within this Webset. Any results found within these sources will be omitted across all search and import operations.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclude: Option<Vec<CreateWebsetParametersObject>>,
+    pub exclude: Option<Vec<CreateWebsetParametersExcludeItem>>,
     /**The external identifier for the webset.
 
 You can use this to reference the Webset by your own internal identifiers.*/
@@ -15028,7 +15128,7 @@ You can use this to reference the Webset by your own internal identifiers.*/
     pub external_id: Option<String>,
     ///Import data from existing Websets and Imports into this Webset.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub import: Option<Vec<CreateWebsetParametersObjectInline>>,
+    pub import: Option<Vec<CreateWebsetParametersImportItem>>,
     ///Set of key-value pairs you want to associate with this object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<CreateWebsetParametersMetadata>,
@@ -15053,17 +15153,15 @@ The actual number of Items found may be less than this number depending on the s
     ///Constraint: minimum=1
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<f64>,
-    /**Criteria every item is evaluated against.
-
-It's not required to provide your own criteria, we automatically detect the criteria from all the information provided in the query. Only use this when you need more fine control.*/
+    ///Criteria every Item is evaluated against. Generated from the query when omitted.
     ///Constraint: minItems=1, maxItems=5
     #[serde(skip_serializing_if = "Option::is_none")]
     pub criteria: Option<Vec<CreateCriterionParameters>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entity: Option<Entity>,
-    ///Sources (existing imports or websets) to exclude from search results. Any results found within these sources will be omitted to prevent finding them during search.
+    ///Imports or Websets whose items are left out of this search's results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclude: Option<Vec<CreateWebsetParametersSearchObject>>,
+    pub exclude: Option<Vec<CreateWebsetParametersSearchExcludeItem>>,
     ///Optional soft cap for people searches. When set, the search will try to include at most this many matching people from the same current employer company.
     ///Constraint: minimum=1
     #[serde(rename = "maxPeoplePerCompany", skip_serializing_if = "Option::is_none")]
@@ -15075,32 +15173,31 @@ Be specific and descriptive about your requirements, characteristics, and any co
 Any URLs provided will be crawled and used as additional context for the search.*/
     ///Constraint: minLength=1, maxLength=5000
     pub query: String,
-    /**Whether to provide an estimate of how many total relevant results could exist for this search.
-Result of the analysis will be available in the `recall` field within the search request.*/
+    ///Whether to estimate how many relevant results exist for this search. The estimate is returned in the search's `recall` field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recall: Option<bool>,
     ///Limit the search to specific sources (existing imports or websets). Any results found within these sources matching the search criteria will be included in the Webset.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope: Option<Vec<CreateWebsetParametersSearchObjectInline>>,
+    pub scope: Option<Vec<CreateWebsetParametersSearchScopeItem>>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetParametersSearchObjectInline {
+pub struct CreateWebsetParametersSearchScopeItem {
     ///The ID of the source to search.
     ///Constraint: minLength=1
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relationship: Option<CreateWebsetParametersSearchObjectInlineRelationship>,
-    pub source: CreateWebsetParametersSearchObjectInlineSource,
+    pub relationship: Option<CreateWebsetParametersSearchScopeItemRelationship>,
+    pub source: CreateWebsetParametersSearchScopeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetParametersSearchObjectInlineSource {
+pub enum CreateWebsetParametersSearchScopeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetParametersSearchObjectInlineSource {
+impl CreateWebsetParametersSearchScopeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -15108,39 +15205,39 @@ impl CreateWebsetParametersSearchObjectInlineSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetParametersSearchObjectInlineSource {
+impl ::std::fmt::Display for CreateWebsetParametersSearchScopeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetParametersSearchObjectInlineSource {
+impl AsRef<str> for CreateWebsetParametersSearchScopeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetParametersSearchObjectInlineRelationship {
+pub struct CreateWebsetParametersSearchScopeItemRelationship {
     ///What the relationship of the entities you hope to find is relative to the entities contained in the provided source.
     pub definition: String,
     ///Constraint: minimum=1, maximum=10
     pub limit: f64,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetParametersSearchObject {
+pub struct CreateWebsetParametersSearchExcludeItem {
     ///The ID of the source to exclude.
     ///Constraint: minLength=1
     pub id: String,
-    pub source: CreateWebsetParametersSearchObjectSource,
+    pub source: CreateWebsetParametersSearchExcludeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetParametersSearchObjectSource {
+pub enum CreateWebsetParametersSearchExcludeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetParametersSearchObjectSource {
+impl CreateWebsetParametersSearchExcludeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -15148,12 +15245,12 @@ impl CreateWebsetParametersSearchObjectSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetParametersSearchObjectSource {
+impl ::std::fmt::Display for CreateWebsetParametersSearchExcludeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetParametersSearchObjectSource {
+impl AsRef<str> for CreateWebsetParametersSearchExcludeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -15167,24 +15264,24 @@ pub struct CreateWebsetParametersMetadata {
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetParametersObjectInline {
+pub struct CreateWebsetParametersImportItem {
     ///When true, items from this import will be evaluated against the search criteria. Requires a search to be provided.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluate: Option<bool>,
     ///The ID of the source to import.
     ///Constraint: minLength=1
     pub id: String,
-    pub source: CreateWebsetParametersObjectInlineSource,
+    pub source: CreateWebsetParametersImportItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetParametersObjectInlineSource {
+pub enum CreateWebsetParametersImportItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetParametersObjectInlineSource {
+impl CreateWebsetParametersImportItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -15192,32 +15289,32 @@ impl CreateWebsetParametersObjectInlineSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetParametersObjectInlineSource {
+impl ::std::fmt::Display for CreateWebsetParametersImportItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetParametersObjectInlineSource {
+impl AsRef<str> for CreateWebsetParametersImportItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWebsetParametersObject {
+pub struct CreateWebsetParametersExcludeItem {
     ///The ID of the source to exclude.
     ///Constraint: minLength=1
     pub id: String,
-    pub source: CreateWebsetParametersObjectSource,
+    pub source: CreateWebsetParametersExcludeItemSource,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateWebsetParametersObjectSource {
+pub enum CreateWebsetParametersExcludeItemSource {
     #[default]
     #[serde(rename = "import")]
     Import,
     #[serde(rename = "webset")]
     Webset,
 }
-impl CreateWebsetParametersObjectSource {
+impl CreateWebsetParametersExcludeItemSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Import => "import",
@@ -15225,12 +15322,12 @@ impl CreateWebsetParametersObjectSource {
         }
     }
 }
-impl ::std::fmt::Display for CreateWebsetParametersObjectSource {
+impl ::std::fmt::Display for CreateWebsetParametersExcludeItemSource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateWebsetParametersObjectSource {
+impl AsRef<str> for CreateWebsetParametersExcludeItemSource {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -15503,7 +15600,7 @@ pub struct SearchMonitorSearchOutput {
 ///Content extraction options applied to each search result. All fields are optional.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContentsOutput {
-    ///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+    ///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<SearchMonitorContentsOutputContext>,
     ///Extra parameters to pass.
@@ -15522,7 +15619,7 @@ pub struct SearchMonitorContentsOutput {
     ///Constraint: maximum=90000, exclusiveMinimum=0
     #[serde(rename = "livecrawlTimeout", skip_serializing_if = "Option::is_none")]
     pub livecrawl_timeout: Option<i64>,
-    ///Maximum age of cached content in hours. Positive values use cached content if it is less than this many hours old; 0 fetches fresh content and is the supported way to apply text rendering options to newly fetched pages; -1 always uses cache; omitted uses fallback fetching when cached content is unavailable. Maximum supported value is 720 hours.
+    ///Maximum age of cached content, in hours, up to 720. Cached content younger than this is used, and older pages are fetched fresh. `0` always fetches fresh content and `-1` always uses the cache. When omitted, cached content is used when available and pages without it are fetched live.
     ///Constraint: minimum=-1, maximum=720
     #[serde(rename = "maxAgeHours", skip_serializing_if = "Option::is_none")]
     pub max_age_hours: Option<i64>,
@@ -15533,14 +15630,27 @@ pub struct SearchMonitorContentsOutput {
     ///Constraint: minimum=0, maximum=100
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subpages: Option<i64>,
-    ///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query` and `maxTokens`.
+    ///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<SearchMonitorContentsOutputSummary>,
     ///Text extraction options for each result.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<SearchMonitorContentsOutputText>,
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SummaryWithMaxTokensOptionsOutput {
+    ///Deprecated. Maximum tokens for the generated summary.
+    ///Constraint: minimum=1
+    #[serde(rename = "maxTokens", skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<i64>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub query: Option<Option<String>>,
+}
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum SearchMonitorContentsOutputVerbosityCompact {
     #[default]
@@ -15600,7 +15710,7 @@ impl AsRef<str> for SearchMonitorContentsOutputVerbosity {
         self.as_str()
     }
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum SearchMonitorContentsOutputTextVariant2Verbosity {
     #[default]
@@ -15719,14 +15829,12 @@ pub enum SearchMonitorContentsOutputText {
     Boolean(bool),
     SearchMonitorContentsOutputTextVariant2(SearchMonitorContentsOutputTextVariant2),
 }
-///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query` and `maxTokens`.
+///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SearchMonitorContentsOutputSummary {
     Boolean(bool),
-    SearchMonitorContentsOutputSummaryVariant2(
-        SearchMonitorContentsOutputSummaryVariant2,
-    ),
+    SummaryWithMaxTokensOptionsOutput(SummaryWithMaxTokensOptionsOutput),
 }
 ///Term to find specific subpages of search results. Can be a single string or an array of strings.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -15905,7 +16013,7 @@ impl AsRef<str> for SearchMonitorContentsOutputExcludeSectionsItem {
         self.as_str()
     }
 }
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SearchMonitorContentsOutputContext {
@@ -15917,110 +16025,220 @@ pub enum SearchMonitorContentsOutputContext {
 ///Controls the format of the run output. Defaults to `{ "type": "text" }` if not specified. When `type` is `"text"`, the output is a plain text summary. When `type` is `"object"`, the output is structured JSON. If no `properties` are specified with `"object"` type, a schema is inferred automatically; otherwise the output adheres to the provided schema.
 #[derive(Debug, Clone)]
 pub enum SearchMonitorOutputSchemaOutput {
-    SearchMonitorOutputSchemaOutputVariant(SearchMonitorOutputSchemaOutputVariant),
-    SearchMonitorOutputSchemaOutputVariant2(SearchMonitorOutputSchemaOutputVariant2),
+    OutputSchemaTextOutput(OutputSchemaTextOutput),
+    OutputSchemaObject(OutputSchemaObject),
 }
-impl Serialize for SearchMonitorOutputSchemaOutput {
+impl serde::Serialize for SearchMonitorOutputSchemaOutput {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Self::SearchMonitorOutputSchemaOutputVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::OutputSchemaTextOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaTextOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "text") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaTextOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("text".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::SearchMonitorOutputSchemaOutputVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::OutputSchemaObject(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaObject),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "object") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaObject),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("object".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
         }
     }
 }
-impl<'de> Deserialize<'de> for SearchMonitorOutputSchemaOutput {
+impl<'de> serde::Deserialize<'de> for SearchMonitorOutputSchemaOutput {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"text\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchMonitorOutputSchemaOutputVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "text" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaTextOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::OutputSchemaTextOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text", first_name, stringify!(OutputSchemaObject),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaObject(payload),
+                                stringify!(OutputSchemaObject),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "object" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            Ok(payload) => return Ok(Self::OutputSchemaObject(payload)),
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaTextOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "object", first_name,
+                                            stringify!(OutputSchemaTextOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaTextOutput(payload),
+                                stringify!(OutputSchemaTextOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
                             serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchMonitorOutputSchemaOutput),
-                                    ": more than one branch preserved the complete input",
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
                                 ),
                             ),
-                        );
+                        )
                     }
-                    matched = Some(
-                        Self::SearchMonitorOutputSchemaOutputVariant(candidate),
-                    );
                 }
             }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"object\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchMonitorOutputSchemaOutputVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchMonitorOutputSchemaOutput),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(
-                        Self::SearchMonitorOutputSchemaOutputVariant2(candidate),
-                    );
-                }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
             }
         }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ", stringify!(SearchMonitorOutputSchemaOutput),
-                    " preserved the complete input",
-                ),
-            ))
     }
 }
 ///The status of the monitor. `active` monitors run on schedule and can be triggered manually. `paused` monitors can only be triggered manually. `disabled` monitors are auto-disabled after 10 consecutive authentication failures.
@@ -16255,7 +16473,7 @@ pub struct SearchMonitorSearch {
 ///Content extraction options applied to each search result. All fields are optional.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContents {
-    ///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+    ///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<SearchMonitorContentsContext>,
     ///Extra parameters to pass.
@@ -16274,7 +16492,7 @@ pub struct SearchMonitorContents {
     ///Constraint: maximum=90000, exclusiveMinimum=0
     #[serde(rename = "livecrawlTimeout", skip_serializing_if = "Option::is_none")]
     pub livecrawl_timeout: Option<i64>,
-    ///Maximum age of cached content in hours. Positive values use cached content if it is less than this many hours old; 0 fetches fresh content and is the supported way to apply text rendering options to newly fetched pages; -1 always uses cache; omitted uses fallback fetching when cached content is unavailable. Maximum supported value is 720 hours.
+    ///Maximum age of cached content, in hours, up to 720. Cached content younger than this is used, and older pages are fetched fresh. `0` always fetches fresh content and `-1` always uses the cache. When omitted, cached content is used when available and pages without it are fetched live.
     ///Constraint: minimum=-1, maximum=720
     #[serde(rename = "maxAgeHours", skip_serializing_if = "Option::is_none")]
     pub max_age_hours: Option<i64>,
@@ -16285,14 +16503,27 @@ pub struct SearchMonitorContents {
     ///Constraint: minimum=0, maximum=100
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subpages: Option<i64>,
-    ///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query` and `maxTokens`.
+    ///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<SearchMonitorContentsSummary>,
     ///Text extraction options for each result.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<SearchMonitorContentsText>,
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SummaryWithMaxTokensOptions {
+    ///Deprecated. Maximum tokens for the generated summary.
+    ///Constraint: minimum=1
+    #[serde(rename = "maxTokens", skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<i64>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub query: Option<Option<String>>,
+}
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum SearchMonitorContentsVerbosityCompact {
     #[default]
@@ -16352,7 +16583,7 @@ impl AsRef<str> for SearchMonitorContentsVerbosity {
         self.as_str()
     }
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum SearchMonitorContentsTextVariant2Verbosity {
     #[default]
@@ -16471,12 +16702,12 @@ pub enum SearchMonitorContentsText {
     Boolean(bool),
     SearchMonitorContentsTextVariant2(SearchMonitorContentsTextVariant2),
 }
-///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query` and `maxTokens`.
+///Return an LLM-generated summary. Pass `true` for defaults, or an object with `query`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SearchMonitorContentsSummary {
     Boolean(bool),
-    SearchMonitorContentsSummaryVariant2(SearchMonitorContentsSummaryVariant2),
+    SummaryWithMaxTokensOptions(SummaryWithMaxTokensOptions),
 }
 ///Term to find specific subpages of search results. Can be a single string or an array of strings.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -16649,7 +16880,7 @@ impl AsRef<str> for SearchMonitorContentsExcludeSectionsItem {
         self.as_str()
     }
 }
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SearchMonitorContentsContext {
@@ -16659,106 +16890,217 @@ pub enum SearchMonitorContentsContext {
 ///Controls the format of the run output. Defaults to `{ "type": "text" }` if not specified. When `type` is `"text"`, the output is a plain text summary. When `type` is `"object"`, the output is structured JSON. If no `properties` are specified with `"object"` type, a schema is inferred automatically; otherwise the output adheres to the provided schema.
 #[derive(Debug, Clone)]
 pub enum SearchMonitorOutputSchema {
-    SearchMonitorOutputSchemaVariant(SearchMonitorOutputSchemaVariant),
-    SearchMonitorOutputSchemaVariant2(SearchMonitorOutputSchemaVariant2),
+    OutputSchemaText(OutputSchemaText),
+    OutputSchemaObject(OutputSchemaObject),
 }
-impl Serialize for SearchMonitorOutputSchema {
+impl serde::Serialize for SearchMonitorOutputSchema {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Self::SearchMonitorOutputSchemaVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::OutputSchemaText(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaText),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "text") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaText),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("text".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::SearchMonitorOutputSchemaVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::OutputSchemaObject(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(OutputSchemaObject),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "object") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(OutputSchemaObject),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("object".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
         }
     }
 }
-impl<'de> Deserialize<'de> for SearchMonitorOutputSchema {
+impl<'de> serde::Deserialize<'de> for SearchMonitorOutputSchema {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"text\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchMonitorOutputSchemaVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "text" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaText,
+                        >(value.clone()) {
+                            Ok(payload) => return Ok(Self::OutputSchemaText(payload)),
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "text", first_name, stringify!(OutputSchemaObject),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaObject(payload),
+                                stringify!(OutputSchemaObject),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "object" => {
+                        let primary_error = match serde_json::from_value::<
+                            OutputSchemaObject,
+                        >(value.clone()) {
+                            Ok(payload) => return Ok(Self::OutputSchemaObject(payload)),
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            OutputSchemaText,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "object", first_name, stringify!(OutputSchemaText),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::OutputSchemaText(payload),
+                                stringify!(OutputSchemaText),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
                             serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchMonitorOutputSchema),
-                                    ": more than one branch preserved the complete input",
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
                                 ),
                             ),
-                        );
+                        )
                     }
-                    matched = Some(Self::SearchMonitorOutputSchemaVariant(candidate));
                 }
             }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"object\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                SearchMonitorOutputSchemaVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchMonitorOutputSchema),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::SearchMonitorOutputSchemaVariant2(candidate));
-                }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
             }
         }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ", stringify!(SearchMonitorOutputSchema),
-                    " preserved the complete input",
-                ),
-            ))
     }
 }
 ///Optional key-value metadata. Echoed back in webhook deliveries so you can route updates to systems like Slack.
@@ -16771,10 +17113,8 @@ pub struct CreateSearchMonitorParametersMetadata {
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateMonitorParameters {
-    ///Behavior to perform when monitor runs
-    pub behavior: CreateMonitorParametersBehavior,
-    ///How often the monitor will run
-    pub cadence: CreateMonitorParametersCadence,
+    pub behavior: MonitorBehavior,
+    pub cadence: MonitorCadence,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<CreateMonitorParametersMetadata>,
     ///The id of the Webset
@@ -16784,8 +17124,8 @@ pub struct CreateMonitorParameters {
 impl CreateMonitorParameters {
     /// Construct this request with every required wire field.
     pub fn new(
-        behavior: CreateMonitorParametersBehavior,
-        cadence: CreateMonitorParametersCadence,
+        behavior: MonitorBehavior,
+        cadence: MonitorCadence,
         webset_id: String,
     ) -> Self {
         Self {
@@ -16797,8 +17137,8 @@ impl CreateMonitorParameters {
     }
     /// Start a dependency-free builder with every required wire field.
     pub fn builder(
-        behavior: CreateMonitorParametersBehavior,
-        cadence: CreateMonitorParametersCadence,
+        behavior: MonitorBehavior,
+        cadence: MonitorCadence,
         webset_id: String,
     ) -> CreateMonitorParametersBuilder {
         CreateMonitorParametersBuilder::new(behavior, cadence, webset_id)
@@ -16813,8 +17153,8 @@ pub struct CreateMonitorParametersBuilder {
 impl CreateMonitorParametersBuilder {
     /// Start a builder with every required wire field.
     pub fn new(
-        behavior: CreateMonitorParametersBehavior,
-        cadence: CreateMonitorParametersCadence,
+        behavior: MonitorBehavior,
+        cadence: MonitorCadence,
         webset_id: String,
     ) -> Self {
         Self {
@@ -16839,63 +17179,58 @@ pub struct CreateMonitorParametersMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-///How often the monitor will run
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateMonitorParametersCadence {
+pub struct MonitorCadence {
     ///Cron expression for monitor cadence (must be a valid Unix cron with 5 fields). The schedule must trigger at most once per day.
     pub cron: String,
     ///IANA timezone (e.g., "America/New_York")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
 }
-///Behavior to perform when monitor runs
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateMonitorParametersBehavior {
-    /**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
-    pub config: CreateMonitorParametersBehaviorConfig,
+pub struct MonitorBehavior {
+    ///Search parameters for each Monitor run.
+    pub config: MonitorBehaviorConfig,
+    ///Configure the Monitor to find new Items matching your search criteria
     #[serde(default)]
-    pub r#type: CreateMonitorParametersBehaviorType,
+    pub r#type: MonitorBehaviorType,
 }
+///Configure the Monitor to find new Items matching your search criteria
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateMonitorParametersBehaviorType {
+pub enum MonitorBehaviorType {
     #[default]
     #[serde(rename = "search")]
     Search,
 }
-impl CreateMonitorParametersBehaviorType {
+impl MonitorBehaviorType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Search => "search",
         }
     }
 }
-impl ::std::fmt::Display for CreateMonitorParametersBehaviorType {
+impl ::std::fmt::Display for MonitorBehaviorType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateMonitorParametersBehaviorType {
+impl AsRef<str> for MonitorBehaviorType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
-/**Specify the search parameters for the Monitor.
-
-By default, the search parameters (query, entity and criteria) from the last search are used when no parameters are provided.*/
+///Search parameters for each Monitor run.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateMonitorParametersBehaviorConfig {
-    ///The behaviour of the Search when it is added to a Webset.
+pub struct MonitorBehaviorConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub behavior: Option<CreateMonitorParametersBehaviorConfigBehavior>,
+    pub behavior: Option<WebsetSearchBehavior>,
     ///The maximum number of results to find
     ///Constraint: exclusiveMinimum=0
     pub count: f64,
     ///The criteria to search for. By default, the criteria from the last search is used.
     ///Constraint: maxItems=5
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub criteria: Option<Vec<CreateMonitorParametersBehaviorConfigObject>>,
+    pub criteria: Option<Vec<MonitorBehaviorConfigCriteriaItem>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entity: Option<Entity>,
     ///The query to search for. By default, the query from the last search is used.
@@ -16904,20 +17239,19 @@ pub struct CreateMonitorParametersBehaviorConfig {
     pub query: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateMonitorParametersBehaviorConfigObject {
+pub struct MonitorBehaviorConfigCriteriaItem {
     ///Constraint: minLength=2, maxLength=1000
     pub description: String,
 }
-///The behaviour of the Search when it is added to a Webset.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateMonitorParametersBehaviorConfigBehavior {
+pub enum WebsetSearchBehavior {
+    #[default]
     #[serde(rename = "override")]
     Override,
-    #[default]
     #[serde(rename = "append")]
     Append,
 }
-impl CreateMonitorParametersBehaviorConfigBehavior {
+impl WebsetSearchBehavior {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Override => "override",
@@ -16925,17 +17259,17 @@ impl CreateMonitorParametersBehaviorConfigBehavior {
         }
     }
 }
-impl ::std::fmt::Display for CreateMonitorParametersBehaviorConfigBehavior {
+impl ::std::fmt::Display for WebsetSearchBehavior {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateMonitorParametersBehaviorConfigBehavior {
+impl AsRef<str> for WebsetSearchBehavior {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
-///The response to a successful import. Includes the upload URL and the upload valid until date.
+///An Import with the URL to upload your file to.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateImportResponse {
     ///The number of entities in the import
@@ -17038,6 +17372,71 @@ impl AsRef<str> for CreateImportResponseObject {
 ///Set of key-value pairs you want to associate with this object.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CreateImportResponseMetadata {
+    /// Additional properties matching the spec's
+    /// `additionalProperties` value schema.
+    #[serde(flatten)]
+    pub additional_properties: std::collections::BTreeMap<String, String>,
+}
+///The format of the import.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreateImportResponseFormat {
+    #[default]
+    #[serde(rename = "csv")]
+    Csv,
+    #[serde(rename = "webset")]
+    Webset,
+}
+impl CreateImportResponseFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Csv => "csv",
+            Self::Webset => "webset",
+        }
+    }
+}
+impl ::std::fmt::Display for CreateImportResponseFormat {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreateImportResponseFormat {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///The reason the import failed
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum CreateImportResponseFailedReason {
+    #[default]
+    #[serde(rename = "invalid_format")]
+    InvalidFormat,
+    #[serde(rename = "invalid_file_content")]
+    InvalidFileContent,
+    #[serde(rename = "missing_identifier")]
+    MissingIdentifier,
+}
+impl CreateImportResponseFailedReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::InvalidFormat => "invalid_format",
+            Self::InvalidFileContent => "invalid_file_content",
+            Self::MissingIdentifier => "missing_identifier",
+        }
+    }
+}
+impl ::std::fmt::Display for CreateImportResponseFailedReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for CreateImportResponseFailedReason {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+///Set of key-value pairs you want to associate with this object.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct CreateImportParametersMetadata {
     /// Additional properties matching the spec's
     /// `additionalProperties` value schema.
     #[serde(flatten)]
@@ -17250,71 +17649,6 @@ impl<'de> Deserialize<'de> for Entity {
             ))
     }
 }
-///The format of the import.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateImportResponseFormat {
-    #[default]
-    #[serde(rename = "csv")]
-    Csv,
-    #[serde(rename = "webset")]
-    Webset,
-}
-impl CreateImportResponseFormat {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Csv => "csv",
-            Self::Webset => "webset",
-        }
-    }
-}
-impl ::std::fmt::Display for CreateImportResponseFormat {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreateImportResponseFormat {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///The reason the import failed
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateImportResponseFailedReason {
-    #[default]
-    #[serde(rename = "invalid_format")]
-    InvalidFormat,
-    #[serde(rename = "invalid_file_content")]
-    InvalidFileContent,
-    #[serde(rename = "missing_identifier")]
-    MissingIdentifier,
-}
-impl CreateImportResponseFailedReason {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::InvalidFormat => "invalid_format",
-            Self::InvalidFileContent => "invalid_file_content",
-            Self::MissingIdentifier => "missing_identifier",
-        }
-    }
-}
-impl ::std::fmt::Display for CreateImportResponseFailedReason {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for CreateImportResponseFailedReason {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Set of key-value pairs you want to associate with this object.
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct CreateImportParametersMetadata {
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<String, String>,
-}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResearchPaperEntity {
     #[serde(default)]
@@ -17401,7 +17735,7 @@ impl AsRef<str> for CustomEntityType {
         self.as_str()
     }
 }
-///When the import is in CSV format, we expect a column containing the key identifier for the entity - for now URL. If not provided, import will fail to be processed.
+///The file format. The CSV must include a column that identifies each entity, or the import fails.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum CreateImportParametersFormat {
     #[default]
@@ -17425,219 +17759,6 @@ impl AsRef<str> for CreateImportParametersFormat {
         self.as_str()
     }
 }
-///What type of entity the import contains (e.g. People, Companies, etc.), and thus should be attempted to be resolved as.
-#[derive(Debug, Clone)]
-pub enum CreateImportParametersEntity {
-    CompanyEntity(CompanyEntity),
-    PersonEntity(PersonEntity),
-    ArticleEntity(ArticleEntity),
-    ResearchPaperEntity(ResearchPaperEntity),
-    CustomEntity(CustomEntity),
-}
-impl Serialize for CreateImportParametersEntity {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::CompanyEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::PersonEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::ArticleEntity(value) => serde::Serialize::serialize(value, serializer),
-            Self::ResearchPaperEntity(value) => {
-                serde::Serialize::serialize(value, serializer)
-            }
-            Self::CustomEntity(value) => serde::Serialize::serialize(value, serializer),
-        }
-    }
-}
-impl<'de> Deserialize<'de> for CreateImportParametersEntity {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"company\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                CompanyEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(CreateImportParametersEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::CompanyEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"person\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                PersonEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(CreateImportParametersEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::PersonEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"article\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArticleEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(CreateImportParametersEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArticleEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(
-                                    value.to_string().as_str(), "\"research_paper\""
-                                )
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ResearchPaperEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(CreateImportParametersEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ResearchPaperEntity(candidate));
-                }
-            }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"custom\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                CustomEntity,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(CreateImportParametersEntity),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::CustomEntity(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ", stringify!(CreateImportParametersEntity),
-                    " preserved the complete input",
-                ),
-            ))
-    }
-}
 ///When format is `csv`, these are the specific import parameters.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CreateImportParametersCsv {
@@ -17651,18 +17772,15 @@ pub struct CreateEnrichmentParameters {
     ///Provide a description of the enrichment task you want to perform to each Webset Item.
     ///Constraint: minLength=1, maxLength=5000
     pub description: String,
-    /**Format of the enrichment response.
-
-We automatically select the best format based on the description. If you want to explicitly specify the format, you can do so here.*/
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub format: Option<CreateEnrichmentParametersFormat>,
+    pub format: Option<WebsetEnrichmentFormat>,
     ///Set of key-value pairs you want to associate with this object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<CreateEnrichmentParametersMetadata>,
     ///When the format is options, the different options for the enrichment agent to choose from.
     ///Constraint: minItems=1, maxItems=150
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<Vec<CreateEnrichmentParametersObject>>,
+    pub options: Option<Vec<CreateEnrichmentParametersOptionsItem>>,
 }
 impl CreateEnrichmentParameters {
     /// Construct this request with every required wire field.
@@ -17694,7 +17812,7 @@ impl CreateEnrichmentParametersBuilder {
     }
     #[doc = concat!("Set the optional `", "format", "` request field.")]
     #[must_use]
-    pub fn format(mut self, format: CreateEnrichmentParametersFormat) -> Self {
+    pub fn format(mut self, format: WebsetEnrichmentFormat) -> Self {
         self.value.format = Some(format);
         self
     }
@@ -17706,7 +17824,10 @@ impl CreateEnrichmentParametersBuilder {
     }
     #[doc = concat!("Set the optional `", "options", "` request field.")]
     #[must_use]
-    pub fn options(mut self, options: Vec<CreateEnrichmentParametersObject>) -> Self {
+    pub fn options(
+        mut self,
+        options: Vec<CreateEnrichmentParametersOptionsItem>,
+    ) -> Self {
         self.value.options = Some(options);
         self
     }
@@ -17716,7 +17837,7 @@ impl CreateEnrichmentParametersBuilder {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateEnrichmentParametersObject {
+pub struct CreateEnrichmentParametersOptionsItem {
     ///The label of the option
     pub label: String,
 }
@@ -17728,11 +17849,8 @@ pub struct CreateEnrichmentParametersMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-/**Format of the enrichment response.
-
-We automatically select the best format based on the description. If you want to explicitly specify the format, you can do so here.*/
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum CreateEnrichmentParametersFormat {
+pub enum WebsetEnrichmentFormat {
     #[default]
     #[serde(rename = "text")]
     Text,
@@ -17749,7 +17867,7 @@ pub enum CreateEnrichmentParametersFormat {
     #[serde(rename = "url")]
     Url,
 }
-impl CreateEnrichmentParametersFormat {
+impl WebsetEnrichmentFormat {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Text => "text",
@@ -17762,12 +17880,12 @@ impl CreateEnrichmentParametersFormat {
         }
     }
 }
-impl ::std::fmt::Display for CreateEnrichmentParametersFormat {
+impl ::std::fmt::Display for WebsetEnrichmentFormat {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for CreateEnrichmentParametersFormat {
+impl AsRef<str> for WebsetEnrichmentFormat {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -17854,6 +17972,14 @@ pub struct CreateAgentRunRequest {
     ///Additional instructions that guide generated output or agent behavior. Use this for source preferences, novelty constraints, duplication constraints, or other behavior guidance.
     #[serde(rename = "systemPrompt", skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    ///An opaque ID your platform assigns to the end user this request is made for, such as a UUID. Lets Exa attribute usage to that end user rather than your whole team. Must not contain personal information such as an email address, phone number, username, or name. Hash such values before sending them. 1 to 64 characters: letters, digits, underscores, and hyphens. Retained even when your team has Zero Data Retention enabled. Does not affect results.
+    #[serde(
+        rename = "userIdentifier",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub user_identifier: Option<Option<String>>,
 }
 impl CreateAgentRunRequest {
     /// Construct this request with every required wire field.
@@ -17868,6 +17994,7 @@ impl CreateAgentRunRequest {
             output_schema: None,
             previous_run_id: None,
             system_prompt: None,
+            user_identifier: None,
         }
     }
     /// Start a dependency-free builder with every required wire field.
@@ -17955,6 +18082,30 @@ impl CreateAgentRunRequestBuilder {
         self.value.system_prompt = Some(system_prompt);
         self
     }
+    #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn user_identifier(mut self, user_identifier: String) -> Self {
+        self.value.user_identifier = Some(Some(user_identifier));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn user_identifier_null(mut self) -> Self {
+        self.value.user_identifier = Some(None);
+        self
+    }
+    #[doc = concat!(
+        "Omit the optional nullable `", "userIdentifier", "` request field."
+    )]
+    #[must_use]
+    pub fn user_identifier_absent(mut self) -> Self {
+        self.value.user_identifier = None;
+        self
+    }
     /// Finish building the request model.
     pub fn build(self) -> CreateAgentRunRequest {
         self.value
@@ -18011,16 +18162,19 @@ pub struct CreateAgentRunRequestInputDataItem {
         Option<Box<JsonValue>>,
     >,
 }
-///Optional per-run spending limit for the metered `auto` and `max` efforts. Runs that finish early may cost less than the limit.
+///Optional per-run spending and duration limits for the metered `auto` and `ultra` efforts. Runs that finish early may cost less than the limit.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AgentBudget {
-    ///Maximum amount this run can spend in US dollars. Accepts $1–$100 and applies only to `auto` and `max`; when omitted, the default cap is $5 for `auto` and $20 for `max`.
+    ///Maximum amount this run can spend in US dollars. Accepts $1–$100 and applies only to `auto` and `ultra`; when omitted, the default cap is $5 for `auto` and $20 for `ultra`.
     #[serde(rename = "maxCostDollars", skip_serializing_if = "Option::is_none")]
     pub max_cost_dollars: Option<f64>,
+    ///Soft wall-clock ceiling for the run in seconds. Accepts 300–10,800 (5 minutes to 3 hours) and applies only to `ultra`. As the run approaches the limit, the agent stops starting new work and returns what it has found with `stopReason: "time_limit_reached"`.
+    #[serde(rename = "maxDurationSeconds", skip_serializing_if = "Option::is_none")]
+    pub max_duration_seconds: Option<i64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ContentsResponse {
-    ///Deprecated. Combined context string from search results. Use highlights or text instead.
+    ///Deprecated. Use `results[].highlights` or `results[].text` instead. Combined context string from search results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<String>,
     #[serde(rename = "costDollars", skip_serializing_if = "Option::is_none")]
@@ -18030,7 +18184,7 @@ pub struct ContentsResponse {
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub results: Option<Vec<SearchResultOutput>>,
-    ///Server-side processing time in milliseconds, measured at the gateway. Covers retrieval but may exclude later phases such as structured output synthesis, so it can be lower than end-to-end request latency.
+    ///Server-side processing time in milliseconds. May exclude output synthesis time, so it can be lower than end-to-end latency.
     #[serde(rename = "searchTime", skip_serializing_if = "Option::is_none")]
     pub search_time: Option<f64>,
     ///Status information for each requested URL or document ID.
@@ -18131,7 +18285,7 @@ pub struct SearchResultOutput {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub author: Option<Option<String>>,
-    ///Structured entity data for company, person, or publication search results. Returned for supported entity-backed categories.
+    ///Structured entity data for company, person, publication, or product search results. Returned for supported entity-backed categories and for product listing pages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entities: Option<Vec<SearchResultOutputEntitiesItemUnion>>,
     ///Results from extras. Each field is returned only when requested via contents.extras.
@@ -18239,226 +18393,408 @@ pub struct SearchResultOutputExtrasCodeBlocksItem {
 }
 #[derive(Debug, Clone)]
 pub enum SearchResultOutputEntitiesItemUnion {
-    ArrayItemVariant(ArrayItemVariant),
-    ArrayItemVariant2(ArrayItemVariant2),
-    ArrayItemVariant3(ArrayItemVariant3),
+    SearchCompanyEntityOutput(SearchCompanyEntityOutput),
+    SearchPersonEntityOutput(SearchPersonEntityOutput),
+    SearchPublicationEntityOutput(SearchPublicationEntityOutput),
 }
-impl Serialize for SearchResultOutputEntitiesItemUnion {
+impl serde::Serialize for SearchResultOutputEntitiesItemUnion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Self::ArrayItemVariant(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchCompanyEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchCompanyEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "company") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchCompanyEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("company".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::ArrayItemVariant2(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchPersonEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchPersonEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "person") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchPersonEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("person".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
-            Self::ArrayItemVariant3(value) => {
-                serde::Serialize::serialize(value, serializer)
+            Self::SearchPublicationEntityOutput(payload) => {
+                let mut value = serde_json::to_value(payload)
+                    .map_err(serde::ser::Error::custom)?;
+                let object = value
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        serde::ser::Error::custom(
+                            concat!(
+                                "discriminated union variant `",
+                                stringify!(SearchPublicationEntityOutput),
+                                "` did not serialize as an object",
+                            ),
+                        )
+                    })?;
+                match object.get("type") {
+                    Some(
+                        serde_json::Value::String(tag),
+                    ) if matches!(tag.as_str(), "publication") => {}
+                    Some(serde_json::Value::String(tag)) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                format!(
+                                    "discriminator `{}` value `{tag}` is not valid for variant `{}`",
+                                    "type", stringify!(SearchPublicationEntityOutput),
+                                ),
+                            ),
+                        );
+                    }
+                    Some(_) => {
+                        return Err(
+                            serde::ser::Error::custom(
+                                concat!(
+                                    "discriminator `", "type",
+                                    "` did not serialize as a string",
+                                ),
+                            ),
+                        );
+                    }
+                    None => {
+                        object
+                            .insert(
+                                "type".to_string(),
+                                serde_json::Value::String("publication".to_string()),
+                            );
+                    }
+                }
+                value.serialize(serializer)
             }
         }
     }
 }
-impl<'de> Deserialize<'de> for SearchResultOutputEntitiesItemUnion {
+impl<'de> serde::Deserialize<'de> for SearchResultOutputEntitiesItemUnion {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let input = <serde_json::Value as Deserialize>::deserialize(deserializer)?;
-        let mut matched = None;
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"company\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let discriminator = match value.get("type") {
+            Some(serde_json::Value::String(discriminator)) => {
+                Some(discriminator.as_str())
+            }
+            Some(_) => {
+                return Err(
+                    serde::de::Error::custom(
+                        concat!("non-string discriminator `", "type", "`",),
+                    ),
+                );
+            }
+            None => None,
+        };
+        match discriminator {
+            Some(discriminator) => {
+                match discriminator {
+                    "company" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchCompanyEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "company", first_name,
+                                            stringify!(SearchPersonEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPersonEntityOutput(payload),
+                                stringify!(SearchPersonEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "company", first_name,
+                                            stringify!(SearchPublicationEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPublicationEntityOutput(payload),
+                                stringify!(SearchPublicationEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "person" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchPersonEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "person", first_name,
+                                            stringify!(SearchCompanyEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchCompanyEntityOutput(payload),
+                                stringify!(SearchCompanyEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "person", first_name,
+                                            stringify!(SearchPublicationEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPublicationEntityOutput(payload),
+                                stringify!(SearchPublicationEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    "publication" => {
+                        let primary_error = match serde_json::from_value::<
+                            SearchPublicationEntityOutput,
+                        >(value.clone()) {
+                            Ok(payload) => {
+                                return Ok(Self::SearchPublicationEntityOutput(payload));
+                            }
+                            Err(error) => error,
+                        };
+                        let mut structural_match: Option<(Self, &'static str)> = None;
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchCompanyEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "publication", first_name,
+                                            stringify!(SearchCompanyEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchCompanyEntityOutput(payload),
+                                stringify!(SearchCompanyEntityOutput),
+                            ));
+                        }
+                        if let Ok(payload) = serde_json::from_value::<
+                            SearchPersonEntityOutput,
+                        >(value.clone()) {
+                            if let Some((_, first_name)) = &structural_match {
+                                return Err(
+                                    serde::de::Error::custom(
+                                        format!(
+                                            "discriminator `{}` value `{}` did not fit its mapped branch and structurally matched both `{}` and `{}`",
+                                            "type", "publication", first_name,
+                                            stringify!(SearchPersonEntityOutput),
+                                        ),
+                                    ),
+                                );
+                            }
+                            structural_match = Some((
+                                Self::SearchPersonEntityOutput(payload),
+                                stringify!(SearchPersonEntityOutput),
+                            ));
+                        }
+                        match structural_match {
+                            Some((payload, _)) => Ok(payload),
+                            None => Err(serde::de::Error::custom(primary_error)),
+                        }
+                    }
+                    other => {
+                        Err(
                             serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchResultOutputEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
+                                format!(
+                                    "unknown discriminator value `{other}` for `{}`", "type",
                                 ),
                             ),
-                        );
+                        )
                     }
-                    matched = Some(Self::ArrayItemVariant(candidate));
                 }
             }
-        }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"person\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant2,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchResultOutputEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArrayItemVariant2(candidate));
-                }
+            None => {
+                Err(
+                    serde::de::Error::custom(
+                        concat!("missing string discriminator `", "type", "`",),
+                    ),
+                )
             }
         }
-        if input
-            .as_object()
-            .is_some_and(|object| {
-                true
-                    && object
-                        .get("type")
-                        .is_some_and(|value| {
-                            value.is_null()
-                                || matches!(value.to_string().as_str(), "\"publication\"")
-                        })
-            })
-        {
-            if let Ok(candidate) = serde_json::from_value::<
-                ArrayItemVariant3,
-            >(input.clone()) {
-                let preserves_complete_input = serde_json::to_value(&candidate)
-                    .map(|encoded| encoded == input)
-                    .unwrap_or(false);
-                if preserves_complete_input {
-                    if matched.is_some() {
-                        return Err(
-                            serde::de::Error::custom(
-                                concat!(
-                                    "ambiguous oneOf value for ",
-                                    stringify!(SearchResultOutputEntitiesItemUnion),
-                                    ": more than one branch preserved the complete input",
-                                ),
-                            ),
-                        );
-                    }
-                    matched = Some(Self::ArrayItemVariant3(candidate));
-                }
-            }
-        }
-        matched
-            .ok_or_else(|| serde::de::Error::custom(
-                concat!(
-                    "no oneOf branch for ",
-                    stringify!(SearchResultOutputEntitiesItemUnion),
-                    " preserved the complete input",
-                ),
-            ))
     }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchPublicationEntityOutput {
+    ///Stable publication entity identifier.
+    pub id: String,
+    ///Publication-specific entity fields.
+    pub properties: SearchPublicationEntityOutputProperties,
+    ///Entity discriminator.
+    pub r#type: SearchPublicationEntityOutputType,
+    ///Entity schema version.
+    ///Constraint: minimum=1
+    pub version: i64,
 }
 ///Entity discriminator.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputTypePublication {
+pub enum SearchPublicationEntityOutputType {
     #[default]
     #[serde(rename = "publication")]
     Publication,
 }
-impl SearchResultOutputTypePublication {
+impl SearchPublicationEntityOutputType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Publication => "publication",
         }
     }
 }
-impl ::std::fmt::Display for SearchResultOutputTypePublication {
+impl ::std::fmt::Display for SearchPublicationEntityOutputType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchResultOutputTypePublication {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputTypePerson {
-    #[default]
-    #[serde(rename = "person")]
-    Person,
-}
-impl SearchResultOutputTypePerson {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Person => "person",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchResultOutputTypePerson {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchResultOutputTypePerson {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputType {
-    #[default]
-    #[serde(rename = "company")]
-    Company,
-}
-impl SearchResultOutputType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Company => "company",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchResultOutputType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchResultOutputType {
+impl AsRef<str> for SearchPublicationEntityOutputType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 ///Publication-specific entity fields.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineE28174F6D93EB37A {
+pub struct SearchPublicationEntityOutputProperties {
     ///Publication abstract text.
     pub r#abstract: Option<String>,
     ///Ordered list of authors.
-    pub authors: Vec<SearchResultOutputPropertiesInlineE28174F6D93EB37AAuthorsItem>,
+    pub authors: Vec<SearchPublicationEntityOutputPropertiesAuthorsItem>,
     ///Number of works citing this publication (incoming references).
     #[serde(rename = "citationCount")]
     pub citation_count: Option<i64>,
@@ -18474,12 +18810,12 @@ pub struct SearchResultOutputPropertiesInlineE28174F6D93EB37A {
     ///Publication title.
     pub title: Option<String>,
     ///Publication type.
-    pub r#type: Option<SearchResultOutputPropertiesInlineE28174F6D93EB37AType>,
+    pub r#type: Option<SearchPublicationEntityOutputPropertiesType>,
     ///Publication year.
     pub year: Option<i64>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
+pub enum SearchPublicationEntityOutputPropertiesType {
     #[default]
     #[serde(rename = "article")]
     Article,
@@ -18498,7 +18834,7 @@ pub enum SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
     #[serde(rename = "review")]
     Review,
 }
-impl SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
+impl SearchPublicationEntityOutputPropertiesType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Article => "article",
@@ -18512,29 +18848,65 @@ impl SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
         }
     }
 }
-impl ::std::fmt::Display for SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
+impl ::std::fmt::Display for SearchPublicationEntityOutputPropertiesType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchResultOutputPropertiesInlineE28174F6D93EB37AType {
+impl AsRef<str> for SearchPublicationEntityOutputPropertiesType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineE28174F6D93EB37AAuthorsItem {
+pub struct SearchPublicationEntityOutputPropertiesAuthorsItem {
     ///Resolved person entity identifier, when available.
     pub id: Option<String>,
     ///Author display name.
     pub name: Option<String>,
 }
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchPersonEntityOutput {
+    ///Stable person entity identifier.
+    pub id: String,
+    ///Person-specific entity fields.
+    pub properties: SearchPersonEntityOutputProperties,
+    ///Entity discriminator.
+    pub r#type: SearchPersonEntityOutputType,
+    ///Entity schema version.
+    ///Constraint: minimum=1
+    pub version: i64,
+}
+///Entity discriminator.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchPersonEntityOutputType {
+    #[default]
+    #[serde(rename = "person")]
+    Person,
+}
+impl SearchPersonEntityOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Person => "person",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchPersonEntityOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchPersonEntityOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
 ///Person-specific entity fields.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInline {
+pub struct SearchPersonEntityOutputProperties {
     ///Known education history for this person.
     #[serde(rename = "educationHistory")]
-    pub education_history: Vec<SearchResultOutputPropertiesInlineEducationHistoryItem>,
+    pub education_history: Vec<SearchPersonEntityOutputPropertiesEducationHistoryItem>,
     ///Person first name.
     #[serde(rename = "firstName")]
     pub first_name: Option<String>,
@@ -18546,38 +18918,38 @@ pub struct SearchResultOutputPropertiesInline {
     ///Person name.
     pub name: Option<String>,
     ///Person research information.
-    pub research: Option<SearchResultOutputPropertiesInlineResearch>,
+    pub research: Option<SearchPersonEntityOutputPropertiesResearch>,
     ///Known professional roles for this person.
     #[serde(rename = "workHistory")]
-    pub work_history: Vec<SearchResultOutputPropertiesInlineWorkHistoryItem>,
+    pub work_history: Vec<SearchPersonEntityOutputPropertiesWorkHistoryItem>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineWorkHistoryItem {
+pub struct SearchPersonEntityOutputPropertiesWorkHistoryItem {
     ///Company for this role.
-    pub company: Option<SearchResultOutputPropertiesInlineWorkHistoryItemCompany>,
+    pub company: Option<SearchPersonEntityOutputPropertiesWorkHistoryItemCompany>,
     ///Role date range.
-    pub dates: Option<SearchResultOutputPropertiesInlineWorkHistoryItemDates>,
+    pub dates: Option<SearchPersonEntityOutputPropertiesWorkHistoryItemDates>,
     ///Role location.
     pub location: Option<String>,
     ///Role title.
     pub title: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineWorkHistoryItemDates {
+pub struct SearchPersonEntityOutputPropertiesWorkHistoryItemDates {
     ///Start date for the date range.
     pub from: Option<String>,
     ///End date for the date range.
     pub to: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineWorkHistoryItemCompany {
+pub struct SearchPersonEntityOutputPropertiesWorkHistoryItemCompany {
     ///Referenced company identifier.
     pub id: Option<String>,
     ///Referenced company name.
     pub name: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineResearch {
+pub struct SearchPersonEntityOutputPropertiesResearch {
     ///Ranked research areas, most active first.
     pub areas: Vec<String>,
     ///Lifetime citation count.
@@ -18594,13 +18966,13 @@ pub struct SearchResultOutputPropertiesInlineResearch {
     pub latest_publication_year: Option<i64>,
     ///Most-cited notable works.
     #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<SearchResultOutputPropertiesInlineResearchNotableWorksItem>,
+    pub notable_works: Vec<SearchPersonEntityOutputPropertiesResearchNotableWorksItem>,
     ///Lifetime number of works.
     #[serde(rename = "worksCount")]
     pub works_count: Option<i64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineResearchNotableWorksItem {
+pub struct SearchPersonEntityOutputPropertiesResearchNotableWorksItem {
     ///Number of works citing this publication.
     #[serde(rename = "citationCount")]
     pub citation_count: Option<i64>,
@@ -18611,14 +18983,14 @@ pub struct SearchResultOutputPropertiesInlineResearchNotableWorksItem {
     ///Publication title.
     pub title: Option<String>,
     ///Publication type.
-    pub r#type: Option<SearchResultOutputPropertiesInlineResearchNotableWorksItemType>,
+    pub r#type: Option<SearchPersonEntityOutputPropertiesResearchNotableWorksItemType>,
     ///Publication venue.
     pub venue: Option<String>,
     ///Publication year.
     pub year: Option<i64>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
+pub enum SearchPersonEntityOutputPropertiesResearchNotableWorksItemType {
     #[default]
     #[serde(rename = "article")]
     Article,
@@ -18637,7 +19009,7 @@ pub enum SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
     #[serde(rename = "review")]
     Review,
 }
-impl SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
+impl SearchPersonEntityOutputPropertiesResearchNotableWorksItemType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Article => "article",
@@ -18652,70 +19024,106 @@ impl SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
     }
 }
 impl ::std::fmt::Display
-for SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
+for SearchPersonEntityOutputPropertiesResearchNotableWorksItemType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchResultOutputPropertiesInlineResearchNotableWorksItemType {
+impl AsRef<str> for SearchPersonEntityOutputPropertiesResearchNotableWorksItemType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineEducationHistoryItem {
+pub struct SearchPersonEntityOutputPropertiesEducationHistoryItem {
     ///Education date range.
-    pub dates: Option<SearchResultOutputPropertiesInlineEducationHistoryItemDates>,
+    pub dates: Option<SearchPersonEntityOutputPropertiesEducationHistoryItemDates>,
     ///Degree or credential.
     pub degree: Option<String>,
     ///Education institution.
     pub institution: Option<
-        SearchResultOutputPropertiesInlineEducationHistoryItemInstitution,
+        SearchPersonEntityOutputPropertiesEducationHistoryItemInstitution,
     >,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineEducationHistoryItemInstitution {
+pub struct SearchPersonEntityOutputPropertiesEducationHistoryItemInstitution {
     ///Referenced institution identifier.
     pub id: Option<String>,
     ///Referenced institution name.
     pub name: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesInlineEducationHistoryItemDates {
+pub struct SearchPersonEntityOutputPropertiesEducationHistoryItemDates {
     ///Start date for the date range.
     pub from: Option<String>,
     ///End date for the date range.
     pub to: Option<String>,
 }
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchCompanyEntityOutput {
+    ///Stable company entity identifier.
+    pub id: String,
+    ///Company-specific entity fields.
+    pub properties: SearchCompanyEntityOutputProperties,
+    ///Entity discriminator.
+    pub r#type: SearchCompanyEntityOutputType,
+    ///Entity schema version.
+    ///Constraint: minimum=1
+    pub version: i64,
+}
+///Entity discriminator.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum SearchCompanyEntityOutputType {
+    #[default]
+    #[serde(rename = "company")]
+    Company,
+}
+impl SearchCompanyEntityOutputType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Company => "company",
+        }
+    }
+}
+impl ::std::fmt::Display for SearchCompanyEntityOutputType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl AsRef<str> for SearchCompanyEntityOutputType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
 ///Company-specific entity fields.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputProperties {
+pub struct SearchCompanyEntityOutputProperties {
     ///Short company description.
     pub description: Option<String>,
     ///Company financial information.
-    pub financials: Option<SearchResultOutputPropertiesFinancials>,
+    pub financials: Option<SearchCompanyEntityOutputPropertiesFinancials>,
     ///Year the company was founded.
     #[serde(rename = "foundedYear")]
     pub founded_year: Option<i64>,
     ///Company headquarters information.
-    pub headquarters: Option<SearchResultOutputPropertiesHeadquarters>,
+    pub headquarters: Option<SearchCompanyEntityOutputPropertiesHeadquarters>,
     ///Company name.
     pub name: Option<String>,
     ///Company research information.
-    pub research: Option<SearchResultOutputPropertiesResearch>,
+    pub research: Option<SearchCompanyEntityOutputPropertiesResearch>,
     ///Company web traffic information.
     #[serde(rename = "webTraffic")]
-    pub web_traffic: Option<SearchResultOutputPropertiesWebTraffic>,
+    pub web_traffic: Option<SearchCompanyEntityOutputPropertiesWebTraffic>,
     ///Company workforce information.
-    pub workforce: Option<SearchResultOutputPropertiesWorkforce>,
+    pub workforce: Option<SearchCompanyEntityOutputPropertiesWorkforce>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesWorkforce {
+pub struct SearchCompanyEntityOutputPropertiesWorkforce {
     ///Total estimated employee count.
     pub total: Option<f64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesWebTraffic {
+pub struct SearchCompanyEntityOutputPropertiesWebTraffic {
     ///Estimated average visit duration, in seconds.
     #[serde(rename = "avgDurationSeconds")]
     pub avg_duration_seconds: Option<f64>,
@@ -18723,13 +19131,13 @@ pub struct SearchResultOutputPropertiesWebTraffic {
     #[serde(rename = "countryRank")]
     pub country_rank: Option<i64>,
     ///Historical monthly website visits.
-    pub history: Vec<SearchResultOutputPropertiesWebTrafficHistoryItem>,
+    pub history: Vec<SearchCompanyEntityOutputPropertiesWebTrafficHistoryItem>,
     ///Estimated monthly website visits.
     #[serde(rename = "visitsMonthly")]
     pub visits_monthly: Option<f64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesWebTrafficHistoryItem {
+pub struct SearchCompanyEntityOutputPropertiesWebTrafficHistoryItem {
     ///Start month for this value, formatted as YYYY-MM.
     #[serde(rename = "dateFrom")]
     pub date_from: String,
@@ -18740,7 +19148,7 @@ pub struct SearchResultOutputPropertiesWebTrafficHistoryItem {
     pub value: f64,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesResearch {
+pub struct SearchCompanyEntityOutputPropertiesResearch {
     ///Ranked research areas, most active first.
     pub areas: Vec<String>,
     ///Lifetime citation count.
@@ -18748,34 +19156,38 @@ pub struct SearchResultOutputPropertiesResearch {
     pub citation_count: Option<i64>,
     ///Most-cited notable works.
     #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<SearchResultOutputPropertiesResearchNotableWorksItem>,
+    pub notable_works: Vec<SearchCompanyEntityOutputPropertiesResearchNotableWorksItem>,
     ///Researchers ordered by works produced at the organization.
     #[serde(rename = "topResearchers")]
-    pub top_researchers: Vec<SearchResultOutputPropertiesResearchTopResearchersItem>,
+    pub top_researchers: Vec<
+        SearchCompanyEntityOutputPropertiesResearchTopResearchersItem,
+    >,
     ///Number of works with an affiliated author.
     #[serde(rename = "worksCount")]
     pub works_count: Option<i64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesResearchTopResearchersItem {
+pub struct SearchCompanyEntityOutputPropertiesResearchTopResearchersItem {
     ///Number of citations for works produced at the organization.
     #[serde(rename = "citationCount")]
     pub citation_count: Option<i64>,
     ///Referenced researcher.
-    pub person: Option<SearchResultOutputPropertiesResearchTopResearchersItemPerson>,
+    pub person: Option<
+        SearchCompanyEntityOutputPropertiesResearchTopResearchersItemPerson,
+    >,
     ///Number of works produced at the organization.
     #[serde(rename = "worksCount")]
     pub works_count: Option<i64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesResearchTopResearchersItemPerson {
+pub struct SearchCompanyEntityOutputPropertiesResearchTopResearchersItemPerson {
     ///Referenced person entity identifier.
     pub id: Option<String>,
     ///Referenced person name.
     pub name: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesResearchNotableWorksItem {
+pub struct SearchCompanyEntityOutputPropertiesResearchNotableWorksItem {
     ///Number of works citing this publication.
     #[serde(rename = "citationCount")]
     pub citation_count: Option<i64>,
@@ -18786,14 +19198,14 @@ pub struct SearchResultOutputPropertiesResearchNotableWorksItem {
     ///Publication title.
     pub title: Option<String>,
     ///Publication type.
-    pub r#type: Option<SearchResultOutputPropertiesResearchNotableWorksItemType>,
+    pub r#type: Option<SearchCompanyEntityOutputPropertiesResearchNotableWorksItemType>,
     ///Publication venue.
     pub venue: Option<String>,
     ///Publication year.
     pub year: Option<i64>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchResultOutputPropertiesResearchNotableWorksItemType {
+pub enum SearchCompanyEntityOutputPropertiesResearchNotableWorksItemType {
     #[default]
     #[serde(rename = "article")]
     Article,
@@ -18812,7 +19224,7 @@ pub enum SearchResultOutputPropertiesResearchNotableWorksItemType {
     #[serde(rename = "review")]
     Review,
 }
-impl SearchResultOutputPropertiesResearchNotableWorksItemType {
+impl SearchCompanyEntityOutputPropertiesResearchNotableWorksItemType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Article => "article",
@@ -18826,18 +19238,19 @@ impl SearchResultOutputPropertiesResearchNotableWorksItemType {
         }
     }
 }
-impl ::std::fmt::Display for SearchResultOutputPropertiesResearchNotableWorksItemType {
+impl ::std::fmt::Display
+for SearchCompanyEntityOutputPropertiesResearchNotableWorksItemType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for SearchResultOutputPropertiesResearchNotableWorksItemType {
+impl AsRef<str> for SearchCompanyEntityOutputPropertiesResearchNotableWorksItemType {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesHeadquarters {
+pub struct SearchCompanyEntityOutputPropertiesHeadquarters {
     ///Company headquarters street address.
     pub address: Option<String>,
     ///Company headquarters city.
@@ -18849,11 +19262,11 @@ pub struct SearchResultOutputPropertiesHeadquarters {
     pub postal_code: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesFinancials {
+pub struct SearchCompanyEntityOutputPropertiesFinancials {
     ///Most recent funding round, when available.
     #[serde(rename = "fundingLatestRound")]
     pub funding_latest_round: Option<
-        SearchResultOutputPropertiesFinancialsFundingLatestRound,
+        SearchCompanyEntityOutputPropertiesFinancialsFundingLatestRound,
     >,
     ///Total funding raised in USD.
     #[serde(rename = "fundingTotal")]
@@ -18863,7 +19276,7 @@ pub struct SearchResultOutputPropertiesFinancials {
     pub revenue_annual: Option<f64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SearchResultOutputPropertiesFinancialsFundingLatestRound {
+pub struct SearchCompanyEntityOutputPropertiesFinancialsFundingLatestRound {
     ///Funding round amount in USD.
     pub amount: Option<f64>,
     ///Funding round date.
@@ -18871,73 +19284,7 @@ pub struct SearchResultOutputPropertiesFinancialsFundingLatestRound {
     ///Funding round name.
     pub name: Option<String>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct ContentsRequest {
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub context: Option<Option<ContentsOptionsContext>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub extras: Option<Option<ContentsOptionsExtras>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub highlights: Option<Option<ContentsOptionsHighlights>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub livecrawl: Option<Option<ContentsOptionsLivecrawl>>,
-    #[serde(
-        rename = "livecrawlTimeout",
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub livecrawl_timeout: Option<Option<i64>>,
-    #[serde(
-        rename = "maxAgeHours",
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub max_age_hours: Option<Option<i64>>,
-    #[serde(
-        rename = "subpageTarget",
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub subpage_target: Option<Option<ContentsOptionsSubpageTarget>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub subpages: Option<Option<i64>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub summary: Option<Option<ContentsOptionsSummary>>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub text: Option<Option<ContentsOptionsText>>,
-}
-///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure.
+///Advanced options for controlling text extraction. Use this when you need to limit text length or include HTML structure. Set `maxAgeHours: 0` to apply `includeHtmlTags`, `verbosity`, and section filters to freshly fetched content.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ContentsOptionsTextVariant2 {
     #[serde(
@@ -19030,6 +19377,14 @@ pub struct ContentsOptions {
         deserialize_with = "tri_state_serde::deserialize"
     )]
     pub context: Option<Option<ContentsOptionsContext>>,
+    ///Deprecated. Use `snapshotAsOf` instead. Alias of snapshotAsOf with identical behavior.
+    #[serde(
+        rename = "crawledBeforeDate",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub crawled_before_date: Option<Option<String>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
@@ -19063,6 +19418,13 @@ pub struct ContentsOptions {
     )]
     pub max_age_hours: Option<Option<i64>>,
     #[serde(
+        rename = "snapshotAsOf",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub snapshot_as_of: Option<Option<String>>,
+    #[serde(
         rename = "subpageTarget",
         skip_serializing_if = "Option::is_none",
         default,
@@ -19095,7 +19457,7 @@ pub enum ContentsOptionsText {
     Boolean(bool),
     ContentsOptionsTextVariant2(ContentsOptionsTextVariant2),
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum ContentsOptionsVerbosityCompact {
     #[default]
@@ -19125,7 +19487,7 @@ impl AsRef<str> for ContentsOptionsVerbosityCompact {
         self.as_str()
     }
 }
-///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output. Use maxAgeHours: 0 when you need this applied to freshly fetched content.
+///Controls text rendering verbosity. compact focuses on main content, standard includes more surrounding page context, and full requests the most complete rendered text. Some pages may produce identical standard and full output.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum ContentsOptionsTextVariant2Verbosity {
     #[default]
@@ -19264,14 +19626,14 @@ pub struct ContentsOptionsSummarySchema {
         Option<Box<JsonValue>>,
     >,
 }
-///Term to find specific subpages of search results. Can be a single string or an array of strings.
+///Deprecated. Term to find specific subpages of search results. Can be a single string or an array of strings. To target subpages, send the result URLs to `/contents` with `subpageTarget`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ContentsOptionsSubpageTarget {
     String(String),
     StringArray(Vec<String>),
 }
-///Deprecated: Use maxAgeHours instead for content freshness control. livecrawl does not guarantee freshly fetched parser output and may be served according to server freshness policy. Do not send livecrawl and maxAgeHours together.
+///Deprecated. Use `maxAgeHours` instead. Does not guarantee freshly fetched content. Cannot be combined with `maxAgeHours`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum ContentsOptionsLivecrawl {
     #[default]
@@ -19491,7 +19853,7 @@ impl AsRef<str> for ContentsOptionsExcludeSectionsItem {
         self.as_str()
     }
 }
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ContentsOptionsContext {
@@ -19536,10 +19898,10 @@ pub struct BatchRequestItem {
     pub custom_id: String,
     ///HTTP method of the batched request. POST-only in v1.
     pub method: BatchRequestItemMethod,
-    ///Target API route for the request. One of `/search` or `/agent/runs` in v1.
+    ///Target API route for the request.
     pub url: BatchRequestItemUrl,
 }
-///Target API route for the request. One of `/search` or `/agent/runs` in v1.
+///Target API route for the request.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum BatchRequestItemUrl {
     #[default]
@@ -19850,7 +20212,7 @@ pub struct Batch {
     pub object: BatchObject,
     #[serde(rename = "requestCounts")]
     pub request_counts: BatchRequestCounts,
-    ///Short-lived presigned download URL for the batch results file (JSONL), or `null` until the batch completes. This is a direct object-store download link, not an API route; fetch it as-is and re-fetch the batch to mint a fresh URL once it expires.
+    ///Short-lived download URL for the batch results file (JSONL), or `null` until the batch completes. Fetch it directly, without an API key. Retrieve the batch again for a fresh URL after it expires.
     #[serde(rename = "resultsUrl")]
     pub results_url: Option<String>,
     pub status: BatchStatus,
@@ -19963,567 +20325,13 @@ impl AsRef<str> for ArticleEntityType {
         self.as_str()
     }
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant3 {
-    ///Stable publication entity identifier.
-    pub id: String,
-    ///Publication-specific entity fields.
-    pub properties: ArrayItemVariant3Properties,
-    ///Entity discriminator.
-    pub r#type: ArrayItemVariant3Type,
-    ///Entity schema version.
-    ///Constraint: minimum=1
-    pub version: i64,
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariant3Type {
-    #[default]
-    #[serde(rename = "publication")]
-    Publication,
-}
-impl ArrayItemVariant3Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Publication => "publication",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariant3Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariant3Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Publication-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant3Properties {
-    ///Publication abstract text.
-    pub r#abstract: Option<String>,
-    ///Ordered list of authors.
-    pub authors: Vec<ArrayItemVariant3PropertiesAuthorsItem>,
-    ///Number of works citing this publication (incoming references).
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Publication date.
-    pub date: Option<String>,
-    ///Bare DOI identifier (e.g. 10.1234/abcd).
-    pub doi: Option<String>,
-    ///Publication language.
-    pub language: Option<String>,
-    ///Number of works this publication cites (outgoing references).
-    #[serde(rename = "referenceCount")]
-    pub reference_count: Option<i64>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<ArrayItemVariant3PropertiesType>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariant3PropertiesType {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl ArrayItemVariant3PropertiesType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariant3PropertiesType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariant3PropertiesType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant3PropertiesAuthorsItem {
-    ///Resolved person entity identifier, when available.
-    pub id: Option<String>,
-    ///Author display name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2 {
-    ///Stable person entity identifier.
-    pub id: String,
-    ///Person-specific entity fields.
-    pub properties: ArrayItemVariant2Properties,
-    ///Entity discriminator.
-    pub r#type: ArrayItemVariant2Type,
-    ///Entity schema version.
-    ///Constraint: minimum=1
-    pub version: i64,
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariant2Type {
-    #[default]
-    #[serde(rename = "person")]
-    Person,
-}
-impl ArrayItemVariant2Type {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Person => "person",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariant2Type {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariant2Type {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Person-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2Properties {
-    ///Known education history for this person.
-    #[serde(rename = "educationHistory")]
-    pub education_history: Vec<ArrayItemVariant2PropertiesEducationHistoryItem>,
-    ///Person first name.
-    #[serde(rename = "firstName")]
-    pub first_name: Option<String>,
-    ///Person last name.
-    #[serde(rename = "lastName")]
-    pub last_name: Option<String>,
-    ///Person location.
-    pub location: Option<String>,
-    ///Person name.
-    pub name: Option<String>,
-    ///Person research information.
-    pub research: Option<ArrayItemVariant2PropertiesResearch>,
-    ///Known professional roles for this person.
-    #[serde(rename = "workHistory")]
-    pub work_history: Vec<ArrayItemVariant2PropertiesWorkHistoryItem>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesWorkHistoryItem {
-    ///Company for this role.
-    pub company: Option<ArrayItemVariant2PropertiesWorkHistoryItemCompany>,
-    ///Role date range.
-    pub dates: Option<ArrayItemVariant2PropertiesWorkHistoryItemDates>,
-    ///Role location.
-    pub location: Option<String>,
-    ///Role title.
-    pub title: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesWorkHistoryItemDates {
-    ///Start date for the date range.
-    pub from: Option<String>,
-    ///End date for the date range.
-    pub to: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesWorkHistoryItemCompany {
-    ///Referenced company identifier.
-    pub id: Option<String>,
-    ///Referenced company name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesResearch {
-    ///Ranked research areas, most active first.
-    pub areas: Vec<String>,
-    ///Lifetime citation count.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Year of the first publication.
-    #[serde(rename = "firstPublicationYear")]
-    pub first_publication_year: Option<i64>,
-    ///Research h-index.
-    #[serde(rename = "hIndex")]
-    pub h_index: Option<i64>,
-    ///Year of the latest publication.
-    #[serde(rename = "latestPublicationYear")]
-    pub latest_publication_year: Option<i64>,
-    ///Most-cited notable works.
-    #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<ArrayItemVariant2PropertiesResearchNotableWorksItem>,
-    ///Lifetime number of works.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesResearchNotableWorksItem {
-    ///Number of works citing this publication.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Digital Object Identifier.
-    pub doi: Option<String>,
-    ///Resolved publication entity identifier, when available.
-    pub id: Option<String>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<ArrayItemVariant2PropertiesResearchNotableWorksItemType>,
-    ///Publication venue.
-    pub venue: Option<String>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariant2PropertiesResearchNotableWorksItemType {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl ArrayItemVariant2PropertiesResearchNotableWorksItemType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariant2PropertiesResearchNotableWorksItemType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariant2PropertiesResearchNotableWorksItemType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesEducationHistoryItem {
-    ///Education date range.
-    pub dates: Option<ArrayItemVariant2PropertiesEducationHistoryItemDates>,
-    ///Degree or credential.
-    pub degree: Option<String>,
-    ///Education institution.
-    pub institution: Option<ArrayItemVariant2PropertiesEducationHistoryItemInstitution>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesEducationHistoryItemInstitution {
-    ///Referenced institution identifier.
-    pub id: Option<String>,
-    ///Referenced institution name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant2PropertiesEducationHistoryItemDates {
-    ///Start date for the date range.
-    pub from: Option<String>,
-    ///End date for the date range.
-    pub to: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariant {
-    ///Stable company entity identifier.
-    pub id: String,
-    ///Company-specific entity fields.
-    pub properties: ArrayItemVariantProperties,
-    ///Entity discriminator.
-    pub r#type: ArrayItemVariantType,
-    ///Entity schema version.
-    ///Constraint: minimum=1
-    pub version: i64,
-}
-///Entity discriminator.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariantType {
-    #[default]
-    #[serde(rename = "company")]
-    Company,
-}
-impl ArrayItemVariantType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Company => "company",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariantType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariantType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Company-specific entity fields.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantProperties {
-    ///Short company description.
-    pub description: Option<String>,
-    ///Company financial information.
-    pub financials: Option<ArrayItemVariantPropertiesFinancials>,
-    ///Year the company was founded.
-    #[serde(rename = "foundedYear")]
-    pub founded_year: Option<i64>,
-    ///Company headquarters information.
-    pub headquarters: Option<ArrayItemVariantPropertiesHeadquarters>,
-    ///Company name.
-    pub name: Option<String>,
-    ///Company research information.
-    pub research: Option<ArrayItemVariantPropertiesResearch>,
-    ///Company web traffic information.
-    #[serde(rename = "webTraffic")]
-    pub web_traffic: Option<ArrayItemVariantPropertiesWebTraffic>,
-    ///Company workforce information.
-    pub workforce: Option<ArrayItemVariantPropertiesWorkforce>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesWorkforce {
-    ///Total estimated employee count.
-    pub total: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesWebTraffic {
-    ///Estimated average visit duration, in seconds.
-    #[serde(rename = "avgDurationSeconds")]
-    pub avg_duration_seconds: Option<f64>,
-    ///Estimated website traffic rank within the company's primary country.
-    #[serde(rename = "countryRank")]
-    pub country_rank: Option<i64>,
-    ///Historical monthly website visits.
-    pub history: Vec<ArrayItemVariantPropertiesWebTrafficHistoryItem>,
-    ///Estimated monthly website visits.
-    #[serde(rename = "visitsMonthly")]
-    pub visits_monthly: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesWebTrafficHistoryItem {
-    ///Start month for this value, formatted as YYYY-MM.
-    #[serde(rename = "dateFrom")]
-    pub date_from: String,
-    ///End month for this value, formatted as YYYY-MM.
-    #[serde(rename = "dateTo")]
-    pub date_to: String,
-    ///Estimated monthly visits for this period.
-    pub value: f64,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesResearch {
-    ///Ranked research areas, most active first.
-    pub areas: Vec<String>,
-    ///Lifetime citation count.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Most-cited notable works.
-    #[serde(rename = "notableWorks")]
-    pub notable_works: Vec<ArrayItemVariantPropertiesResearchNotableWorksItem>,
-    ///Researchers ordered by works produced at the organization.
-    #[serde(rename = "topResearchers")]
-    pub top_researchers: Vec<ArrayItemVariantPropertiesResearchTopResearchersItem>,
-    ///Number of works with an affiliated author.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesResearchTopResearchersItem {
-    ///Number of citations for works produced at the organization.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Referenced researcher.
-    pub person: Option<ArrayItemVariantPropertiesResearchTopResearchersItemPerson>,
-    ///Number of works produced at the organization.
-    #[serde(rename = "worksCount")]
-    pub works_count: Option<i64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesResearchTopResearchersItemPerson {
-    ///Referenced person entity identifier.
-    pub id: Option<String>,
-    ///Referenced person name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesResearchNotableWorksItem {
-    ///Number of works citing this publication.
-    #[serde(rename = "citationCount")]
-    pub citation_count: Option<i64>,
-    ///Digital Object Identifier.
-    pub doi: Option<String>,
-    ///Resolved publication entity identifier, when available.
-    pub id: Option<String>,
-    ///Publication title.
-    pub title: Option<String>,
-    ///Publication type.
-    pub r#type: Option<ArrayItemVariantPropertiesResearchNotableWorksItemType>,
-    ///Publication venue.
-    pub venue: Option<String>,
-    ///Publication year.
-    pub year: Option<i64>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum ArrayItemVariantPropertiesResearchNotableWorksItemType {
-    #[default]
-    #[serde(rename = "article")]
-    Article,
-    #[serde(rename = "book")]
-    Book,
-    #[serde(rename = "book-chapter")]
-    BookChapter,
-    #[serde(rename = "dataset")]
-    Dataset,
-    #[serde(rename = "dissertation")]
-    Dissertation,
-    #[serde(rename = "preprint")]
-    Preprint,
-    #[serde(rename = "report")]
-    Report,
-    #[serde(rename = "review")]
-    Review,
-}
-impl ArrayItemVariantPropertiesResearchNotableWorksItemType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Article => "article",
-            Self::Book => "book",
-            Self::BookChapter => "book-chapter",
-            Self::Dataset => "dataset",
-            Self::Dissertation => "dissertation",
-            Self::Preprint => "preprint",
-            Self::Report => "report",
-            Self::Review => "review",
-        }
-    }
-}
-impl ::std::fmt::Display for ArrayItemVariantPropertiesResearchNotableWorksItemType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for ArrayItemVariantPropertiesResearchNotableWorksItemType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesHeadquarters {
-    ///Company headquarters street address.
-    pub address: Option<String>,
-    ///Company headquarters city.
-    pub city: Option<String>,
-    ///Company headquarters country.
-    pub country: Option<String>,
-    ///Company headquarters postal code.
-    #[serde(rename = "postalCode")]
-    pub postal_code: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesFinancials {
-    ///Most recent funding round, when available.
-    #[serde(rename = "fundingLatestRound")]
-    pub funding_latest_round: Option<
-        ArrayItemVariantPropertiesFinancialsFundingLatestRound,
-    >,
-    ///Total funding raised in USD.
-    #[serde(rename = "fundingTotal")]
-    pub funding_total: Option<f64>,
-    ///Estimated annual revenue in USD.
-    #[serde(rename = "revenueAnnual")]
-    pub revenue_annual: Option<f64>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ArrayItemVariantPropertiesFinancialsFundingLatestRound {
-    ///Funding round amount in USD.
-    pub amount: Option<f64>,
-    ///Funding round date.
-    pub date: Option<String>,
-    ///Funding round name.
-    pub name: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant4 {
-    pub payload: AnswerStreamChunkVariant4Payload,
-    pub tag: AnswerStreamChunkVariant4Tag,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant3 {
-    #[serde(rename = "costDollars")]
-    pub cost_dollars: CostDollarsOutput,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant2 {
-    ///Search results cited by the final streamed answer.
-    pub citations: Vec<AnswerStreamChunkVariant2CitationsItem>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant {
-    ///OpenAI-compatible streamed completion choices with internal provider fields removed.
-    pub choices: Vec<AnswerStreamChunkVariantChoicesItem>,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
 ///Schema for each JSON payload emitted in an `/answer` server-sent event stream. Each event is emitted as `data: <json>`.
 #[derive(Debug, Clone)]
 pub enum AnswerStreamChunk {
-    AnswerStreamChunkVariant(AnswerStreamChunkVariant),
-    AnswerStreamChunkVariant2(AnswerStreamChunkVariant2),
-    AnswerStreamChunkVariant3(AnswerStreamChunkVariant3),
-    AnswerStreamChunkVariant4(AnswerStreamChunkVariant4),
+    AnswerStreamTextDeltaChunk(AnswerStreamTextDeltaChunk),
+    AnswerStreamCitationsChunkOutput(AnswerStreamCitationsChunkOutput),
+    AnswerStreamCostChunkOutput(AnswerStreamCostChunkOutput),
+    AnswerStreamErrorChunkOutput(AnswerStreamErrorChunkOutput),
 }
 impl Serialize for AnswerStreamChunk {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -20531,16 +20339,16 @@ impl Serialize for AnswerStreamChunk {
         S: serde::Serializer,
     {
         match self {
-            Self::AnswerStreamChunkVariant(value) => {
+            Self::AnswerStreamTextDeltaChunk(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
-            Self::AnswerStreamChunkVariant2(value) => {
+            Self::AnswerStreamCitationsChunkOutput(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
-            Self::AnswerStreamChunkVariant3(value) => {
+            Self::AnswerStreamCostChunkOutput(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
-            Self::AnswerStreamChunkVariant4(value) => {
+            Self::AnswerStreamErrorChunkOutput(value) => {
                 serde::Serialize::serialize(value, serializer)
             }
         }
@@ -20555,7 +20363,7 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
         let mut matched = None;
         if true {
             if let Ok(candidate) = serde_json::from_value::<
-                AnswerStreamChunkVariant,
+                AnswerStreamTextDeltaChunk,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -20571,13 +20379,13 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
                             ),
                         );
                     }
-                    matched = Some(Self::AnswerStreamChunkVariant(candidate));
+                    matched = Some(Self::AnswerStreamTextDeltaChunk(candidate));
                 }
             }
         }
         if true {
             if let Ok(candidate) = serde_json::from_value::<
-                AnswerStreamChunkVariant2,
+                AnswerStreamCitationsChunkOutput,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -20593,13 +20401,13 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
                             ),
                         );
                     }
-                    matched = Some(Self::AnswerStreamChunkVariant2(candidate));
+                    matched = Some(Self::AnswerStreamCitationsChunkOutput(candidate));
                 }
             }
         }
         if true {
             if let Ok(candidate) = serde_json::from_value::<
-                AnswerStreamChunkVariant3,
+                AnswerStreamCostChunkOutput,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -20615,7 +20423,7 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
                             ),
                         );
                     }
-                    matched = Some(Self::AnswerStreamChunkVariant3(candidate));
+                    matched = Some(Self::AnswerStreamCostChunkOutput(candidate));
                 }
             }
         }
@@ -20632,7 +20440,7 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
             })
         {
             if let Ok(candidate) = serde_json::from_value::<
-                AnswerStreamChunkVariant4,
+                AnswerStreamErrorChunkOutput,
             >(input.clone()) {
                 let preserves_complete_input = serde_json::to_value(&candidate)
                     .map(|encoded| encoded == input)
@@ -20648,7 +20456,7 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
                             ),
                         );
                     }
-                    matched = Some(Self::AnswerStreamChunkVariant4(candidate));
+                    matched = Some(Self::AnswerStreamErrorChunkOutput(candidate));
                 }
             }
         }
@@ -20662,9 +20470,21 @@ impl<'de> Deserialize<'de> for AnswerStreamChunk {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariantChoicesItem {
+pub struct AnswerStreamTextDeltaChunk {
+    ///Streamed completion choices in the OpenAI chat completions format.
+    pub choices: Vec<AnswerStreamTextDeltaChunkChoicesItem>,
+    /// Additional properties matching the spec's
+    /// `additionalProperties` value schema.
+    #[serde(flatten)]
+    pub additional_properties: std::collections::BTreeMap<
+        String,
+        Option<Box<JsonValue>>,
+    >,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerStreamTextDeltaChunkChoicesItem {
     ///Incremental answer content emitted by the model.
-    pub delta: AnswerStreamChunkVariantChoicesItemDelta,
+    pub delta: AnswerStreamTextDeltaChunkChoicesItemDelta,
     ///Reason this streamed choice finished, when present.
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -20685,7 +20505,7 @@ pub struct AnswerStreamChunkVariantChoicesItem {
 }
 ///Incremental answer content emitted by the model.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct AnswerStreamChunkVariantChoicesItemDelta {
+pub struct AnswerStreamTextDeltaChunkChoicesItemDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(
@@ -20695,7 +20515,7 @@ pub struct AnswerStreamChunkVariantChoicesItemDelta {
     )]
     pub refusal: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<AnswerStreamChunkVariantChoicesItemDeltaRole>,
+    pub role: Option<AnswerStreamTextDeltaChunkChoicesItemDeltaRole>,
     /// Additional properties matching the spec's
     /// `additionalProperties` value schema.
     #[serde(flatten)]
@@ -20705,65 +20525,83 @@ pub struct AnswerStreamChunkVariantChoicesItemDelta {
     >,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum AnswerStreamChunkVariantChoicesItemDeltaRole {
+pub enum AnswerStreamTextDeltaChunkChoicesItemDeltaRole {
     #[default]
     #[serde(rename = "assistant")]
     Assistant,
 }
-impl AnswerStreamChunkVariantChoicesItemDeltaRole {
+impl AnswerStreamTextDeltaChunkChoicesItemDeltaRole {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Assistant => "assistant",
         }
     }
 }
-impl ::std::fmt::Display for AnswerStreamChunkVariantChoicesItemDeltaRole {
+impl ::std::fmt::Display for AnswerStreamTextDeltaChunkChoicesItemDeltaRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for AnswerStreamChunkVariantChoicesItemDeltaRole {
+impl AsRef<str> for AnswerStreamTextDeltaChunkChoicesItemDeltaRole {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerStreamErrorChunkOutput {
+    pub payload: AnswerStreamErrorChunkOutputPayload,
+    pub tag: AnswerStreamErrorChunkOutputTag,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum AnswerStreamChunkVariant4Tag {
+pub enum AnswerStreamErrorChunkOutputTag {
     #[default]
     #[serde(rename = "ERROR")]
     Error,
 }
-impl AnswerStreamChunkVariant4Tag {
+impl AnswerStreamErrorChunkOutputTag {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Error => "ERROR",
         }
     }
 }
-impl ::std::fmt::Display for AnswerStreamChunkVariant4Tag {
+impl ::std::fmt::Display for AnswerStreamErrorChunkOutputTag {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
-impl AsRef<str> for AnswerStreamChunkVariant4Tag {
+impl AsRef<str> for AnswerStreamErrorChunkOutputTag {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant4Payload {
-    pub error: AnswerStreamChunkVariant4PayloadError,
+pub struct AnswerStreamErrorChunkOutputPayload {
+    pub error: AnswerStreamErrorChunkOutputPayloadError,
     ///Unique identifier for the request.
     #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant4PayloadError {
+pub struct AnswerStreamErrorChunkOutputPayloadError {
     pub code: i64,
     pub message: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkVariant2CitationsItem {
+pub struct AnswerStreamCostChunkOutput {
+    #[serde(rename = "costDollars")]
+    pub cost_dollars: CostDollarsOutput,
+    ///Unique identifier for the request.
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerStreamCitationsChunkOutput {
+    ///Search results cited by the final streamed answer.
+    pub citations: Vec<AnswerStreamCitationsChunkOutputCitationsItem>,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerStreamCitationsChunkOutputCitationsItem {
     ///If available, the author of the content.
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -20790,136 +20628,6 @@ pub struct AnswerStreamChunkVariant2CitationsItem {
     pub title: String,
     ///The URL of the search result.
     pub url: url::Url,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum AnswerStreamChunkTag {
-    #[default]
-    #[serde(rename = "ERROR")]
-    Error,
-}
-impl AnswerStreamChunkTag {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Error => "ERROR",
-        }
-    }
-}
-impl ::std::fmt::Display for AnswerStreamChunkTag {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for AnswerStreamChunkTag {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkPayload {
-    pub error: AnswerStreamChunkPayloadError,
-    ///Unique identifier for the request.
-    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkPayloadError {
-    pub code: i64,
-    pub message: String,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkCitationsItem {
-    ///If available, the author of the content.
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub author: Option<Option<String>>,
-    ///The URL of the favicon for the search result's domain.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub favicon: Option<url::Url>,
-    ///The temporary ID for the document. Useful for the /contents endpoint.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    ///The URL of an image associated with the search result, if available.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<url::Url>,
-    ///An estimate of the creation date, from parsing HTML content. Format is YYYY-MM-DD.
-    #[serde(rename = "publishedDate", skip_serializing_if = "Option::is_none")]
-    pub published_date: Option<chrono::DateTime<chrono::Utc>>,
-    ///The full text content of each source. Only present when text contents are requested.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    ///The title of the search result.
-    pub title: String,
-    ///The URL of the search result.
-    pub url: url::Url,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AnswerStreamChunkChoicesItem {
-    ///Incremental answer content emitted by the model.
-    pub delta: AnswerStreamChunkChoicesItemDelta,
-    ///Reason this streamed choice finished, when present.
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub finish_reason: Option<Option<String>>,
-    ///Index of this streamed choice.
-    ///Constraint: minimum=0
-    pub index: i64,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-///Incremental answer content emitted by the model.
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct AnswerStreamChunkChoicesItemDelta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub refusal: Option<Option<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<AnswerStreamChunkChoicesItemDeltaRole>,
-    /// Additional properties matching the spec's
-    /// `additionalProperties` value schema.
-    #[serde(flatten)]
-    pub additional_properties: std::collections::BTreeMap<
-        String,
-        Option<Box<JsonValue>>,
-    >,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum AnswerStreamChunkChoicesItemDeltaRole {
-    #[default]
-    #[serde(rename = "assistant")]
-    Assistant,
-}
-impl AnswerStreamChunkChoicesItemDeltaRole {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Assistant => "assistant",
-        }
-    }
-}
-impl ::std::fmt::Display for AnswerStreamChunkChoicesItemDeltaRole {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for AnswerStreamChunkChoicesItemDeltaRole {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AnswerResponseAnswerVariant2 {
@@ -20944,13 +20652,13 @@ pub struct AnswerResponse {
     #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
 }
-///Endpoint-dependent estimated dollar cost breakdown for the completed request. Billing is computed from usage counters rather than this response object.
+///Estimated dollar cost of the request. Which fields appear depends on the endpoint.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CostDollarsOutput {
     ///Estimated cost breakdown for standalone content retrieval (text, highlights, and summaries billed outside the bundled search price).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contents: Option<CostDollarsOutputContents>,
-    ///Endpoint-dependent estimated search cost breakdown by retrieval mode. Instant, fast, and auto search responses may include neural search cost. Deep search modes may be reflected only in total.
+    ///Estimated search cost by retrieval mode. Some search types report their cost only in `total`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub search: Option<CostDollarsOutputSearch>,
     ///Cost of synthesized summary generation for search requests.
@@ -20960,7 +20668,7 @@ pub struct CostDollarsOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total: Option<f64>,
 }
-///Endpoint-dependent estimated search cost breakdown by retrieval mode. Instant, fast, and auto search responses may include neural search cost. Deep search modes may be reflected only in total.
+///Estimated search cost by retrieval mode. Some search types report their cost only in `total`.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CostDollarsOutputSearch {
     ///Cost of keyword search operations.
@@ -21039,13 +20747,21 @@ pub struct AnswerRequest {
     ///If true, returns full page text with default settings. If false, disables text return.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<bool>,
+    ///An opaque ID your platform assigns to the end user this request is made for, such as a UUID. Lets Exa attribute usage to that end user rather than your whole team. Must not contain personal information such as an email address, phone number, username, or name. Hash such values before sending them. 1 to 64 characters: letters, digits, underscores, and hyphens. Retained even when your team has Zero Data Retention enabled. Does not affect results.
+    #[serde(
+        rename = "userIdentifier",
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "tri_state_serde::deserialize"
+    )]
+    pub user_identifier: Option<Option<String>>,
     #[serde(
         rename = "userLocation",
         skip_serializing_if = "Option::is_none",
         default,
         deserialize_with = "tri_state_serde::deserialize"
     )]
-    pub user_location: Option<Option<String>>,
+    pub user_location: Option<Option<AnswerRequestUserLocation>>,
 }
 impl AnswerRequest {
     /// Construct this request with every required wire field.
@@ -21057,6 +20773,7 @@ impl AnswerRequest {
             stream: None,
             system_prompt: None,
             text: None,
+            user_identifier: None,
             user_location: None,
         }
     }
@@ -21109,10 +20826,34 @@ impl AnswerRequestBuilder {
         self
     }
     #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to a value."
+    )]
+    #[must_use]
+    pub fn user_identifier(mut self, user_identifier: String) -> Self {
+        self.value.user_identifier = Some(Some(user_identifier));
+        self
+    }
+    #[doc = concat!(
+        "Set the optional nullable `", "userIdentifier", "` request field to JSON null."
+    )]
+    #[must_use]
+    pub fn user_identifier_null(mut self) -> Self {
+        self.value.user_identifier = Some(None);
+        self
+    }
+    #[doc = concat!(
+        "Omit the optional nullable `", "userIdentifier", "` request field."
+    )]
+    #[must_use]
+    pub fn user_identifier_absent(mut self) -> Self {
+        self.value.user_identifier = None;
+        self
+    }
+    #[doc = concat!(
         "Set the optional nullable `", "userLocation", "` request field to a value."
     )]
     #[must_use]
-    pub fn user_location(mut self, user_location: String) -> Self {
+    pub fn user_location(mut self, user_location: AnswerRequestUserLocation) -> Self {
         self.value.user_location = Some(Some(user_location));
         self
     }
@@ -21134,6 +20875,14 @@ impl AnswerRequestBuilder {
     pub fn build(self) -> AnswerRequest {
         self.value
     }
+}
+///The end user's location, as a two-letter ISO 3166-1 country code (e.g. `US`) or an object with `country`, a `latitude` and `longitude` pair, or both. The country localizes results. Coordinates are used only for queries that name no place but depend on where the user is, such as "coffee near me". They do not set a country, so send `country` with them to localize results. Send only the precision your use case needs.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum AnswerRequestUserLocation {
+    String(String),
+    AnswerRequestUserLocationVariant2(AnswerRequestUserLocationVariant2),
+    AnswerRequestUserLocationVariant3(AnswerRequestUserLocationVariant3),
 }
 ///A [JSON Schema Draft 7](https://json-schema.org/draft-07) specification for the desired answer structure. When provided, the answer is returned as a structured object matching the schema instead of a plain string.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -21330,11 +21079,12 @@ pub struct AgentRun {
     pub output: AgentRunOutput,
     pub request: Option<AgentRunRequest>,
     pub status: AgentRunStatus,
-    ///Why the run stopped. `null` while the run is queued or running.
+    ///Why the run stopped. `null` while the run is queued or running. Every reason except `error` and `cancelled` means the run completed and returned what it found. Clients should accept values not listed here.
     #[serde(rename = "stopReason")]
     pub stop_reason: Option<AgentStopReason>,
     pub usage: AgentUsage,
 }
+///Billed usage for the run. When an `auto` or `ultra` run's metered cost exceeds `budget.maxCostDollars`, the run is billed the budget and each quantity except `dataSources` is scaled down in proportion, so quantities can be fractional.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentUsage {
     ///Constraint: minimum=0
@@ -21343,12 +21093,12 @@ pub struct AgentUsage {
     #[serde(rename = "dataSources", skip_serializing_if = "Option::is_none")]
     pub data_sources: Option<AgentDataSourceUsage>,
     ///Constraint: minimum=0
-    pub emails: i64,
+    pub emails: f64,
     ///Constraint: minimum=0
     #[serde(rename = "phoneNumbers")]
-    pub phone_numbers: i64,
+    pub phone_numbers: f64,
     ///Constraint: minimum=0
-    pub searches: i64,
+    pub searches: f64,
 }
 ///Per-provider tool call counts for Exa Connect data sources used during the run. Keys are provider names (e.g. `fiber`, `similarweb`). Only providers with non-zero usage are included.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -21358,28 +21108,58 @@ pub struct AgentDataSourceUsage {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, i64>,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentStopReason {
-    #[default]
-    #[serde(rename = "schema_satisfied")]
     SchemaSatisfied,
-    #[serde(rename = "budget_reached")]
     BudgetReached,
-    #[serde(rename = "stopped")]
+    TimeLimitReached,
+    IterationLimitReached,
+    TokenLimitReached,
     Stopped,
-    #[serde(rename = "error")]
     Error,
-    #[serde(rename = "cancelled")]
     Cancelled,
+    /// Custom or unknown model identifier
+    Custom(String),
+}
+impl<'de> serde::Deserialize<'de> for AgentStopReason {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "schema_satisfied" => Ok(AgentStopReason::SchemaSatisfied),
+            "budget_reached" => Ok(AgentStopReason::BudgetReached),
+            "time_limit_reached" => Ok(AgentStopReason::TimeLimitReached),
+            "iteration_limit_reached" => Ok(AgentStopReason::IterationLimitReached),
+            "token_limit_reached" => Ok(AgentStopReason::TokenLimitReached),
+            "stopped" => Ok(AgentStopReason::Stopped),
+            "error" => Ok(AgentStopReason::Error),
+            "cancelled" => Ok(AgentStopReason::Cancelled),
+            _ => Ok(AgentStopReason::Custom(value)),
+        }
+    }
+}
+impl serde::Serialize for AgentStopReason {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
 }
 impl AgentStopReason {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &str {
         match self {
-            Self::SchemaSatisfied => "schema_satisfied",
-            Self::BudgetReached => "budget_reached",
-            Self::Stopped => "stopped",
-            Self::Error => "error",
-            Self::Cancelled => "cancelled",
+            AgentStopReason::SchemaSatisfied => "schema_satisfied",
+            AgentStopReason::BudgetReached => "budget_reached",
+            AgentStopReason::TimeLimitReached => "time_limit_reached",
+            AgentStopReason::IterationLimitReached => "iteration_limit_reached",
+            AgentStopReason::TokenLimitReached => "token_limit_reached",
+            AgentStopReason::Stopped => "stopped",
+            AgentStopReason::Error => "error",
+            AgentStopReason::Cancelled => "cancelled",
+            AgentStopReason::Custom(s) => s.as_str(),
         }
     }
 }
@@ -21517,7 +21297,7 @@ pub struct AgentRunRequestInputDataItem {
         Option<Box<JsonValue>>,
     >,
 }
-///Cost and reasoning effort preference for the run. `auto` lets Exa choose the appropriate effort. `max` is the highest-effort public beta tier for work where completeness and thoroughness matter more than latency or cost, including large list building, deep multi-source research, and criteria that are hard to verify.
+///Cost and reasoning effort preference for the run. `auto` lets Exa choose the appropriate effort. `ultra` is the highest-effort tier for work where completeness and thoroughness matter more than latency or cost, including large list building, deep multi-source research, and criteria that are hard to verify.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum AgentEffort {
     #[serde(rename = "minimal")]
@@ -21533,8 +21313,8 @@ pub enum AgentEffort {
     #[default]
     #[serde(rename = "auto")]
     Auto,
-    #[serde(rename = "max")]
-    Max,
+    #[serde(rename = "ultra")]
+    Ultra,
 }
 impl AgentEffort {
     pub fn as_str(&self) -> &'static str {
@@ -21545,7 +21325,7 @@ impl AgentEffort {
             Self::High => "high",
             Self::Xhigh => "xhigh",
             Self::Auto => "auto",
-            Self::Max => "max",
+            Self::Ultra => "ultra",
         }
     }
 }
@@ -21559,12 +21339,15 @@ impl AsRef<str> for AgentEffort {
         self.as_str()
     }
 }
-///Optional per-run spending limit for the metered `auto` and `max` efforts. Runs that finish early may cost less than the limit.
+///Optional per-run spending and duration limits for the metered `auto` and `ultra` efforts. Runs that finish early may cost less than the limit.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AgentBudgetOutput {
-    ///Maximum amount this run can spend in US dollars. Accepts $1–$100 and applies only to `auto` and `max`; when omitted, the default cap is $5 for `auto` and $20 for `max`.
+    ///Maximum amount this run can spend in US dollars. Accepts $1–$100 and applies only to `auto` and `ultra`; when omitted, the default cap is $5 for `auto` and $20 for `ultra`.
     #[serde(rename = "maxCostDollars", skip_serializing_if = "Option::is_none")]
     pub max_cost_dollars: Option<f64>,
+    ///Soft wall-clock ceiling for the run in seconds. Accepts 300–10,800 (5 minutes to 3 hours) and applies only to `ultra`. As the run approaches the limit, the agent stops starting new work and returns what it has found with `stopReason: "time_limit_reached"`.
+    #[serde(rename = "maxDurationSeconds", skip_serializing_if = "Option::is_none")]
+    pub max_duration_seconds: Option<i64>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentRunOutput {
@@ -21770,51 +21553,8 @@ pub struct AgentDataSourceOutput {
 pub struct AgentDataSource {
     pub provider: AgentDataSourceProvider,
 }
-///Identifier of an Exa Connect data provider.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum AgentDataSourceProvider {
-    #[default]
-    #[serde(rename = "fiber")]
-    Fiber,
-    #[serde(rename = "financial_datasets")]
-    FinancialDatasets,
-    #[serde(rename = "similarweb")]
-    Similarweb,
-    #[serde(rename = "baselayer")]
-    Baselayer,
-    #[serde(rename = "affiliate")]
-    Affiliate,
-    #[serde(rename = "particle")]
-    Particle,
-    #[serde(rename = "jinko")]
-    Jinko,
-    #[serde(rename = "polymarket")]
-    Polymarket,
-}
-impl AgentDataSourceProvider {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Fiber => "fiber",
-            Self::FinancialDatasets => "financial_datasets",
-            Self::Similarweb => "similarweb",
-            Self::Baselayer => "baselayer",
-            Self::Affiliate => "affiliate",
-            Self::Particle => "particle",
-            Self::Jinko => "jinko",
-            Self::Polymarket => "polymarket",
-        }
-    }
-}
-impl ::std::fmt::Display for AgentDataSourceProvider {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for AgentDataSourceProvider {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
+///Identifier of an Exa Connect data provider, such as `fiber` or `financial_datasets`. A team can use the self-serve providers and any provider enabled for it; requesting any other provider returns a 400.
+pub type AgentDataSourceProvider = String;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentCostDollars {
     ///Constraint: minimum=0
@@ -21840,14 +21580,42 @@ pub struct AgentDataSourceCost {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, f64>,
 }
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///The user's country only. Equivalent to the string form.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerRequestUserLocationVariant2 {
+    ///The two-letter ISO 3166-1 country code of the user, e.g. `US`.
+    pub country: String,
+}
+///The user's coordinates, with an optional country.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnswerRequestUserLocationVariant3 {
+    ///The two-letter ISO 3166-1 country code of the user, e.g. `US`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    ///The user's latitude in decimal degrees.
+    ///Constraint: minimum=-90, maximum=90
+    pub latitude: f64,
+    ///The user's longitude in decimal degrees.
+    ///Constraint: minimum=-180, maximum=180
+    pub longitude: f64,
+}
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ContentsOptionsContextVariant2 {
-    ///Deprecated. Maximum character limit for the context string. Maximum supported value is 10000.
-    ///Constraint: minimum=1, maximum=10000
+    ///Maximum character limit for the context string.
+    ///Constraint: minimum=1, maximum=1000000
     #[serde(rename = "maxCharacters", skip_serializing_if = "Option::is_none")]
     pub max_characters: Option<i64>,
 }
+///Provide either `ids` or `urls`, but not both.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum ContentsRequest {
+    ContentsRequestVariant(ContentsRequestVariant),
+    ContentsRequestVariant2(ContentsRequestVariant2),
+}
+pub type ContentsRequestVariant = serde_json::Value;
+pub type ContentsRequestVariant2 = serde_json::Value;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateImportParameters {
     ///The number of records to import
@@ -21855,9 +21623,8 @@ pub struct CreateImportParameters {
     ///When format is `csv`, these are the specific import parameters.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub csv: Option<CreateImportParametersCsv>,
-    ///What type of entity the import contains (e.g. People, Companies, etc.), and thus should be attempted to be resolved as.
-    pub entity: CreateImportParametersEntity,
-    ///When the import is in CSV format, we expect a column containing the key identifier for the entity - for now URL. If not provided, import will fail to be processed.
+    pub entity: Entity,
+    ///The file format. The CSV must include a column that identifies each entity, or the import fails.
     pub format: CreateImportParametersFormat,
     ///Set of key-value pairs you want to associate with this object.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -21873,7 +21640,7 @@ impl CreateImportParameters {
     /// Construct this request with every required wire field.
     pub fn new(
         count: f64,
-        entity: CreateImportParametersEntity,
+        entity: Entity,
         format: CreateImportParametersFormat,
         size: f64,
     ) -> Self {
@@ -21890,7 +21657,7 @@ impl CreateImportParameters {
     /// Start a dependency-free builder with every required wire field.
     pub fn builder(
         count: f64,
-        entity: CreateImportParametersEntity,
+        entity: Entity,
         format: CreateImportParametersFormat,
         size: f64,
     ) -> CreateImportParametersBuilder {
@@ -21907,7 +21674,7 @@ impl CreateImportParametersBuilder {
     /// Start a builder with every required wire field.
     pub fn new(
         count: f64,
-        entity: CreateImportParametersEntity,
+        entity: Entity,
         format: CreateImportParametersFormat,
         size: f64,
     ) -> Self {
@@ -21946,151 +21713,52 @@ pub struct ListMonitorsMetadata {
     #[serde(flatten)]
     pub additional_properties: std::collections::BTreeMap<String, String>,
 }
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContentsContextVariant2 {
-    ///Deprecated. Maximum character limit for the context string. Maximum supported value is 10000.
-    ///Constraint: minimum=1, maximum=10000
+    ///Maximum character limit for the context string.
+    ///Constraint: minimum=1, maximum=1000000
     #[serde(rename = "maxCharacters", skip_serializing_if = "Option::is_none")]
     pub max_characters: Option<i64>,
 }
 pub type SearchMonitorContentsLivecrawlVariant = String;
 pub type SearchMonitorContentsLivecrawlVariant2 = String;
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchMonitorContentsOutputContextVariant2 {
-    ///Deprecated. Maximum character limit for the context string. Maximum supported value is 10000.
-    ///Constraint: minimum=1, maximum=10000
+    ///Maximum character limit for the context string.
+    ///Constraint: minimum=1, maximum=1000000
     #[serde(rename = "maxCharacters", skip_serializing_if = "Option::is_none")]
     pub max_characters: Option<i64>,
 }
 pub type SearchMonitorContentsOutputLivecrawlVariant = String;
 pub type SearchMonitorContentsOutputLivecrawlVariant2 = String;
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorContentsOutputSummaryVariant2 {
-    ///Maximum tokens for the generated summary.
-    ///Constraint: minimum=1
-    #[serde(rename = "maxTokens", skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<i64>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub query: Option<Option<String>>,
-}
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct SearchMonitorContentsSummaryVariant2 {
-    ///Maximum tokens for the generated summary.
-    ///Constraint: minimum=1
-    #[serde(rename = "maxTokens", skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<i64>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
-        deserialize_with = "tri_state_serde::deserialize"
-    )]
-    pub query: Option<Option<String>>,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaOutputType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-}
-impl SearchMonitorOutputSchemaOutputType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaOutputType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaOutputType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaOutputTypeObject {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchMonitorOutputSchemaOutputTypeObject {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaOutputTypeObject {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaOutputTypeObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaType {
-    #[default]
-    #[serde(rename = "text")]
-    Text,
-}
-impl SearchMonitorOutputSchemaType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Text => "text",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaType {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum SearchMonitorOutputSchemaTypeObject {
-    #[default]
-    #[serde(rename = "object")]
-    Object,
-}
-impl SearchMonitorOutputSchemaTypeObject {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Object => "object",
-        }
-    }
-}
-impl ::std::fmt::Display for SearchMonitorOutputSchemaTypeObject {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-impl AsRef<str> for SearchMonitorOutputSchemaTypeObject {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-///Deprecated: Use highlights or text instead. Returns page contents as a combined context string.
+///Deprecated. Use `highlights` or `text` instead. Returns page contents as a combined context string.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SearchRequestContextVariant2 {
-    ///Deprecated. Maximum character limit for the context string. Maximum supported value is 10000.
-    ///Constraint: minimum=1, maximum=10000
+    ///Maximum character limit for the context string.
+    ///Constraint: minimum=1, maximum=1000000
     #[serde(rename = "maxCharacters", skip_serializing_if = "Option::is_none")]
     pub max_characters: Option<i64>,
+}
+///The user's country only. Equivalent to the string form.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchRequestUserLocationVariant2 {
+    ///The two-letter ISO 3166-1 country code of the user, e.g. `US`.
+    pub country: String,
+}
+///The user's coordinates, with an optional country.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SearchRequestUserLocationVariant3 {
+    ///The two-letter ISO 3166-1 country code of the user, e.g. `US`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    ///The user's latitude in decimal degrees.
+    ///Constraint: minimum=-90, maximum=90
+    pub latitude: f64,
+    ///The user's longitude in decimal degrees.
+    ///Constraint: minimum=-180, maximum=180
+    pub longitude: f64,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TriggerSearchMonitorResponse {
